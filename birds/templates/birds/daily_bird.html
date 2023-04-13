@@ -1,0 +1,108 @@
+<!-- guess.html -->
+
+{% extends 'birds/base.html' %}
+
+{% block content %}
+<div class="container">
+
+  <div class="col-sm-8 col-lg-4 mx-auto"> 
+    <div id="carouselExampleControls" class="carousel slide" data-ride="carousel">
+      <div class="carousel-inner">
+        {% for cap, src in imgs.items %}
+          <div class="carousel-item {% if forloop.counter0 == 0 %}active{% endif %}">
+            <img src="{{ src }}" class="d-block w-100 bird-img">
+            <br>
+            <div class="carousel-caption d-none d-md-block">
+              <strong><h4>{{ cap }}</h4></strong>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <a class="carousel-control-prev" href="#carouselExampleControls" role="button" data-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="sr-only">Previous</span>
+      </a>
+      <a class="carousel-control-next" href="#carouselExampleControls" role="button" data-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="sr-only">Next</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="col-8 mx-auto">
+    <form method="post" id="guess-form" class="mx-auto">
+      {% csrf_token %}
+      <input type="hidden" name="user_id" id="user_id" value="">
+      <div class="form-row">
+        <div class="col-10">
+          <input type="text" class="form-control" name="guess-input" id="guess-input" placeholder="Guess">
+        </div>
+        <div class="col-2">
+          <button type="submit" class="btn btn-primary">Submit</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <br>
+  <div id="guesses" class="col-xs-10 col-lg-6 mx-auto">
+    <div class="row flex-nowrap">
+      <div class="col-sm taxonomy">Order</div>
+      <div class="col-sm taxonomy">Family</div>
+      <div class="col-sm taxonomy">Genus</div>
+      <div class="col-sm taxonomy">Common Name</div>
+    </div>
+    {{ guesses_html | safe }}
+  </div>
+
+
+</div>
+<script>
+  $(document).ready(function () {
+    if(localStorage.getItem('user_id') == null) {
+      localStorage.setItem('user_id', Date.now());
+    }
+    $("#user_id").val(localStorage.getItem('user_id'));
+    var winner = JSON.parse("{{ is_winner }}".toLowerCase());
+    winner || {{ guess_count }} == 6 ? showAlert(winner, "{{emojis}}"): "";
+  });
+
+  $(document).on("submit", "#guess-form", function(e){
+    e.preventDefault();
+    var serializedData = $(this).serialize();
+    $.ajax({
+      type: "POST",
+      url: "/",
+      data:  serializedData,
+      success: function(response){
+        $("#guesses").append(response.guesses_html);
+        $("#guess-input").val(""); // clear the input field
+        response.is_winner || response.guess_count == 6 ? showAlert(response.is_winner, response.emojis) : "";
+      }
+    });
+  });
+
+  function showAlert(is_winner, emojis) {
+    const Alert = Swal.mixin({
+      title: is_winner ? "Congratulations!" : "Oh no!",
+      text: is_winner ? "You guessed the bird correctly." : "You failed to guess the bird correctly.",
+      icon: is_winner ? "success" : "error",
+      confirmButtonText: "Copy Results"
+    });
+
+    Alert.fire().then((result) => {
+      if (result.isConfirmed) {
+        navigator.clipboard.writeText(emojis);
+        Swal.fire({
+          toast: true,
+          title: 'Copied!',
+          icon: "success",
+          showConfirmButton: false,
+          timer: 2000,
+          timerProgressBar: true
+        })
+      }
+    });
+  };
+</script>
+{% endblock %}

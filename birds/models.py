@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 class Bird(models.Model):
     species_code = models.CharField(max_length=100)
@@ -41,11 +42,25 @@ class Bird(models.Model):
         }
 
 
-class Guess(models.Model):
-    game_date = models.DateField(auto_now_add=True)
-    user_id = models.CharField(max_length=100)
-    species_code = models.CharField(max_length=100)
-    guessed_at = models.DateTimeField(auto_now_add=True)
+class Game(models.Model):
+    date = models.DateField()
+    bird = models.ForeignKey(Bird, on_delete=models.CASCADE, null=True)
 
     def __str__(self):
-        return self.species_code
+        return f"{self.date}: {self.bird}"
+
+
+class Guess(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    game = models.ForeignKey(Game, on_delete=models.CASCADE, null=True)
+    bird = models.ForeignKey(Bird, on_delete=models.CASCADE, null=True)
+    guessed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Guesses"
+
+
+class Image(models.Model):
+    url = models.URLField()
+    label = models.CharField(max_length=100)
+    bird = models.ForeignKey(Bird, on_delete=models.CASCADE, null=True)

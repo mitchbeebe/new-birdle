@@ -5,46 +5,26 @@
 {% block content %}
 <div class="container">
 
-  <div class="col-sm-8 col-lg-4 mx-auto"> 
-    <div id="carouselExampleControls" class="carousel slide" data-ride="carousel">
-      <div class="carousel-inner">
-        {% for cap, src in imgs.items %}
-          <div class="carousel-item {% if forloop.counter0 == 0 %}active{% endif %}">
-            <img src="{{ src }}" class="d-block w-100 bird-img">
-            <br>
-            <div class="carousel-caption d-none d-md-block">
-              <strong><h4>{{ cap }}</h4></strong>
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-      <a class="carousel-control-prev" href="#carouselExampleControls" role="button" data-slide="prev">
-        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-        <span class="sr-only">Previous</span>
-      </a>
-      <a class="carousel-control-next" href="#carouselExampleControls" role="button" data-slide="next">
-        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-        <span class="sr-only">Next</span>
-      </a>
-    </div>
-  </div>
+  {% include 'birds/bird_display.html'%}
+  
+  <br>
 
-  <div class="col-8 mx-auto">
-    <form method="post" id="guess-form" class="mx-auto">
-      {% csrf_token %}
-      <input type="hidden" name="user_id" id="user_id" value="">
-      <div class="form-row">
-        <div class="col-10">
-          <input type="text" class="form-control" name="guess-input" id="guess-input" placeholder="Guess">
-        </div>
-        <div class="col-2">
-          <button type="submit" class="btn btn-primary">Submit</button>
-        </div>
+<div class="col-8 mx-auto">
+  <form method="post" id="guess-form" class="row justify-content-center">
+    {% csrf_token %}
+    <input type="hidden" name="user_id" id="user_id" value="">
+      <div class="col-10">
+        <input type="text" class="form-control" name="guess-input" id="guess-input" placeholder="Guess">
       </div>
-    </form>
-  </div>
+      <div class="col-2">
+        <button type="submit" class="btn btn-primary">Submit</button>
+      </div>
+      <div id="error-message" style="color: red;"></div>
+  </form>
+</div>
 
   <br>
+
   <div id="guesses" class="col-xs-10 col-lg-6 mx-auto">
     <div class="row flex-nowrap">
       <div class="col-sm taxonomy">Order</div>
@@ -54,17 +34,18 @@
     </div>
     {{ guesses_html | safe }}
   </div>
-
-
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
 <script>
   $(document).ready(function () {
-    if(localStorage.getItem('user_id') == null) {
+    /*if(localStorage.getItem('user_id') === null) {
       localStorage.setItem('user_id', Date.now());
     }
-    $("#user_id").val(localStorage.getItem('user_id'));
+    $("#user_id").val(localStorage.getItem('user_id'));*/
     var winner = JSON.parse("{{ is_winner }}".toLowerCase());
-    winner || {{ guess_count }} == 6 ? showAlert(winner, "{{emojis}}"): "";
+    winner || {{ guess_count }} == 6 ? showAlert(winner, `{{emojis}}`): "";
   });
 
   $(document).on("submit", "#guess-form", function(e){
@@ -78,6 +59,21 @@
         $("#guesses").append(response.guesses_html);
         $("#guess-input").val(""); // clear the input field
         response.is_winner || response.guess_count == 6 ? showAlert(response.is_winner, response.emojis) : "";
+      },
+      error: function(xhr) {
+          // Display the error message in the error message div
+          if (xhr.status == 400) {
+            $("#guess-input").val(""); // clear the input field
+            Swal.fire({
+              toast: true,
+              title: "That bird doesn't exist!",
+              icon: "error",
+              showConfirmButton: false,
+              timer: 2000,
+              timerProgressBar: true
+            });
+            
+          }
       }
     });
   });

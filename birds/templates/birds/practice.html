@@ -1,0 +1,82 @@
+{% extends 'birds/base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-center">
+    <p>Pick a family of species to start practicing your bird recognition</p>
+</div>
+<form method="post" id="flashcard-form" class="row justify-content-center">
+    {% csrf_token %}
+        <div class="col-auto">
+            {{ form.family }}
+        </div>
+        <div class="col-auto">
+            <button type="submit" id="submitButton" class="btn btn-primary">
+                <span id="spinner" class="spinner-border spinner-border-sm visually-hidden" aria-hidden="true"></span>
+                Show me a bird
+                <span id="status" class="visually-hidden" role="status">Loading...</span>
+            </button>
+        </div>
+</form>
+
+<br>
+{% include 'birds/bird_display.html'%}
+{% comment %} <div class="d-flex justify-content-center">
+    <div id="spinner" class="spinner-border" style="width: 3rem; height: 3rem;" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div> {% endcomment %}
+<br>
+
+<div class="row justify-content-center">
+     <div class="col-auto">
+    {% for option in options %}
+        <button class="btn btn-secondary mx-1 answer" data-mdb-toggle="animation" data-mdb-animation-reset="true" data-mdb-animation="tada" value="{{option}}">{{option}}</button>
+    {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var submitButton = document.getElementById("submitButton");
+    var spinner = document.getElementById("spinner");
+
+    submitButton.addEventListener("click", function(event) {
+        // Hide the submit button and display the spinner
+        spinner.classList.remove("visually-hidden");
+
+        window.addEventListener("load", function() {
+            // Hide the spinner and display the submit button again
+            spinner.classList.add("visually-hidden");
+        });
+    });
+});
+
+$(".answer").click(function() {
+    var clickedButton = $(this);
+    var answer = `{{answer}}`;
+    if (clickedButton.val() == answer) {
+        clickedButton.addClass("btn-success");
+        Swal.fire({
+            title: 'Correct!',
+            icon: "success",
+            confirmButtonText: "Show me another",
+            showDenyButton: true,
+            denyButtonText: "I'm done"
+          }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById("submitButton").click();
+            } else if (result.isDenied) {
+                window.location.replace("/practice/");
+            }
+          });
+    } else {
+        clickedButton.addClass("btn-danger jiggle");
+        setTimeout(function() {
+            clickedButton.removeClass("btn-danger jiggle");
+        }, 500);
+    }
+})
+</script>
+{% endblock %}

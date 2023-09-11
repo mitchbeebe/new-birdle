@@ -3,13 +3,18 @@
 {% extends 'birds/base.html' %}
 
 {% block content %}
-<div class="col-8 mx-auto">
-Your Guess History
-<ul>
-{% for guess in guesses %}
-<li>{{guess}}</li>
-{% endfor %}
-</ul>
+<div class="d-flex justify-content-center">
+    <div class="col-8 mx-auto">
+        <div id="guess_dist"></div>
+    </div>
 </div>
+    <div class="col-8 mx-auto">
+        <div>Games Played: {{ games_played }}</div>
+        <div>Games Won: {{ games_won }} </div>
+        <div>Win Percentage: {{ win_pct }}</div>
+        <div>Current Streak: {{ current_streak }} </div>
+        <div>Best Streak: {{ best_streak }} </div>
+</div>
+{% include "birds/guess_distribution.html" %}
 {% endblock %}
 

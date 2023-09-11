@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Postgres
+.my_pgpass
+.pg_service.conf

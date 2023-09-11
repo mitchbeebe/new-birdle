@@ -14,11 +14,19 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import path
+from django.contrib import admin
 from birds import views
+from django.conf.urls import handler404, handler500
 
 urlpatterns = [
     path('', views.daily_bird, name='daily_bird'),
     path('stats/', views.stats, name='stats'),
     path('info/', views.info, name='info'),
-    path('api/birds/', views.bird_autocomplete, name='bird_autocomplete')
+    path('practice/', views.practice, name='practice'),
+    path('practice/<str:family>', views.practice, name='practice-family'),
+    path('api/birds/', views.bird_autocomplete, name='bird_autocomplete'),
+    path("admin/", admin.site.urls)
 ]
+
+handler404 = "birds.views.error_404"
+handler500 = "birds.views.error_500"

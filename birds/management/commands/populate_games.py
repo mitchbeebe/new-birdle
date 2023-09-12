@@ -7,7 +7,7 @@ import random
 from datetime import date, timedelta
 
 class Command(BaseCommand):
-    help = 'Import bird species from eBird Taxonomy v2022 dataset'
+    help = 'Populate Games data with date and bird'
 
     def handle(self, *args, **options):
         # TODO

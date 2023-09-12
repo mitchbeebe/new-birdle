@@ -11,6 +11,7 @@ class BirdAdmin(admin.ModelAdmin):
 @admin.register(Game)
 class GameAdmin(admin.ModelAdmin):
     list_display = ["id", "date", "bird"]
+    ordering = ('date',)
 
 @admin.register(Guess)
 class GuessAdmin(admin.ModelAdmin):

@@ -15,7 +15,7 @@ Including another URLconf
 """
 from django.urls import path
 from django.contrib import admin
-from birds import views
+from birdle import views
 from django.conf.urls import handler404, handler500
 
 urlpatterns = [
@@ -28,5 +28,5 @@ urlpatterns = [
     path("admin/", admin.site.urls)
 ]
 
-handler404 = "birds.views.error_404"
-handler500 = "birds.views.error_500"
+handler404 = "birdle.views.error_404"
+handler500 = "birdle.views.error_500"

@@ -1,6 +1,6 @@
 <!-- stats.html -->
 
-{% extends 'birds/base.html' %}
+{% extends 'birdle/base.html' %}
 
 {% block content %}
 <div class="d-flex justify-content-center">
@@ -15,6 +15,6 @@
         <div>Current Streak: {{ current_streak }} </div>
         <div>Best Streak: {{ best_streak }} </div>
 </div>
-{% include "birds/guess_distribution.html" %}
+{% include "birdle/guess_distribution.html" %}
 {% endblock %}
 

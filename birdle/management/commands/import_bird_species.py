@@ -2,14 +2,14 @@
 
 import csv
 from django.core.management.base import BaseCommand
-from birds.models import Bird
+from birdle.models import Bird
 
 class Command(BaseCommand):
     help = 'Import bird species from eBird Taxonomy v2022 dataset'
 
     def handle(self, *args, **options):
         # Open the CSV file and create a CSV reader
-        with open('birds/static/birds/ebird_taxonomy_v2022.csv') as csvfile:
+        with open('birdle/static/birdle/ebird_taxonomy_v2022.csv') as csvfile:
             reader = csv.reader(csvfile)
 
             # Skip the header row

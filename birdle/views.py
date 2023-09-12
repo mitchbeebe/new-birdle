@@ -42,7 +42,7 @@ def daily_bird(request):
             "guesses_html": guesses_html, 
             "guess_count": request.session['guess_count']
         }
-        return render(request, 'birds/daily_bird.html', context)
+        return render(request, 'birdle/daily_bird.html', context)
     
     elif request.method == "POST":
         # Get the user
@@ -127,11 +127,11 @@ def stats(request):
         "best_streak": best_streak
     }
     # Render the guess history template with the data
-    return render(request, 'birds/stats.html', stats)
+    return render(request, 'birdle/stats.html', stats)
 
 
 def info(request):
-    return render(request, 'birds/info.html')
+    return render(request, 'birdle/info.html')
 
 
 def practice(request, **kwargs):
@@ -157,7 +157,7 @@ def practice(request, **kwargs):
             form = FlashcardForm(initial={"family": decoded_family})
         else:
             form = FlashcardForm()
-        return render(request, "birds/practice.html", {"form": form, **data})
+        return render(request, "birdle/practice.html", {"form": form, **data})
     elif request.method == "POST":
         form = FlashcardForm(request.POST)
         if form.is_valid():

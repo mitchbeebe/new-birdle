@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class BirdsConfig(AppConfig):
+class BirdleConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'birds'
+    name = 'birdle'

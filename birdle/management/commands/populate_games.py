@@ -1,6 +1,5 @@
 # populate_games.py
 
-import csv
 from django.core.management.base import BaseCommand
 from birdle.models import Bird, Game
 import random
@@ -10,7 +9,6 @@ class Command(BaseCommand):
     help = 'Populate Games data with date and bird'
 
     def handle(self, *args, **options):
-        # TODO
         bird_ids = list(Bird.objects.values_list('id', flat=True))
         random.shuffle(bird_ids)
 

@@ -2,19 +2,37 @@
 
 {% extends 'birdle/base.html' %}
 
+{% load static %}
+
 {% block content %}
-<div class="d-flex justify-content-center">
+<div class="d-block">
     <div class="col-8 mx-auto">
         <div id="guess_dist"></div>
+        <br>
+        <hr>
+        <br>
+        <div id="game_history"></div>
+        <br>
+        <hr>
+        <br>
+        <div>Games Played: {{ games_played }}</div>
+        <div>Games Won: {{ games_won }}</div>
+        <div>Win Percentage: {{ win_pct }}</div>
+        <div>Current Streak: {{ current_streak }}</div>
+        <div>Best Streak: {{ best_streak }}</div>
     </div>
 </div>
-    <div class="col-8 mx-auto">
-        <div>Games Played: {{ games_played }}</div>
-        <div>Games Won: {{ games_won }} </div>
-        <div>Win Percentage: {{ win_pct }}</div>
-        <div>Current Streak: {{ current_streak }} </div>
-        <div>Best Streak: {{ best_streak }} </div>
-</div>
-{% include "birdle/guess_distribution.html" %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script type="module">
+    import {guess_distribution} from "{% static 'birdle/guess_distribution.js' %}";
+    guess_distribution({{ guess_freq | safe }}, "#guess_dist");
+</script> 
+<script type="module">
+    import {game_history} from "{% static 'birdle/game_history.js' %}";
+    game_history("#game_history");
+</script> 
 {% endblock %}
 

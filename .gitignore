@@ -131,3 +131,5 @@ dmypy.json
 # Postgres
 .my_pgpass
 .pg_service.conf
+
+.DS_Store

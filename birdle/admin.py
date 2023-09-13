@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from birdle.models import Bird, Game, Guess, Image
+from birdle.models import *
 
 
 @admin.register(Bird)
@@ -26,3 +26,7 @@ admin.site.register(User, UserAdmin)
 @admin.register(Image)
 class ImageAdmin(admin.ModelAdmin):
     list_display = ["id", "bird", "url"]
+
+@admin.register(UserGame)
+class UserGameAdmin(admin.ModelAdmin):
+    list_display = ["id", "user", "game", "guess_count", "is_winner"]

@@ -45,7 +45,7 @@ class Bird(models.Model):
 
 class Game(models.Model):
     date = models.DateField()
-    bird = models.ForeignKey(Bird, on_delete=models.CASCADE, null=True)
+    bird = models.ForeignKey(Bird, on_delete=models.CASCADE)
 
     def __str__(self):
         return f"{self.date}: {self.bird}"
@@ -53,8 +53,8 @@ class Game(models.Model):
 
 class Guess(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    game = models.ForeignKey(Game, on_delete=models.CASCADE, null=True)
-    bird = models.ForeignKey(Bird, on_delete=models.CASCADE, null=True)
+    game = models.ForeignKey(Game, on_delete=models.CASCADE)
+    bird = models.ForeignKey(Bird, on_delete=models.CASCADE)
     guessed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -64,4 +64,11 @@ class Guess(models.Model):
 class Image(models.Model):
     url = models.URLField()
     label = models.CharField(max_length=100)
-    bird = models.ForeignKey(Bird, on_delete=models.CASCADE, null=True)
+    bird = models.ForeignKey(Bird, on_delete=models.CASCADE)
+
+
+class UserGame(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    game = models.ForeignKey(Game, on_delete=models.CASCADE)
+    guess_count = models.IntegerField()
+    is_winner = models.BooleanField()

@@ -1,7 +1,14 @@
+<!-- 500.html -->
+
 {% extends 'birdle/base.html' %}
+{% load static %}
 
 {% block content %}
-<div class="d-flex justify-content-center">
-    <img src="{% static 'birdle/dodo.png' %}" alt="A Dodo Bird">
+<div class="col-6 mx-auto">
+    <br>
+    <h3 class="text-center">Oops, server error</h3>
+    <br>
+    <br>
+    <img class="img-thumbnail" src="{% static 'birdle/dodo.png' %}" alt="A Dodo Bird">
 </div>
 {% endblock %}

@@ -1,3 +1,4 @@
+import json
 import requests
 from bs4 import BeautifulSoup
 from django.shortcuts import redirect, render
@@ -25,7 +26,7 @@ def daily_bird(request):
         # Get user if available
         user, created = User.objects.get_or_create(id=request.user.id)
         # Get past guesses
-        guesses = Guess.objects.filter(user=user)
+        guesses = Guess.objects.filter(user=user, game=game)
         # Convert guesses to Birds
         bird_guesses = [guess.bird for guess in guesses]
         # Check if any of past guesses were correct
@@ -122,7 +123,7 @@ def stats(request):
         "games_played": games_played,
         "games_won": games_won,
         "win_pct": games_played/games_won,
-        "guess_freq": guess_freq,
+        "guess_freq": json.dumps(guess_freq),
         "current_streak": current_streak,
         "best_streak": best_streak
     }
@@ -235,8 +236,8 @@ def build_results_emojis(guesses, answer):
 
 
 def error_404(request, exception):
-    return render(request, '404.html')
+    return render(request, '404.html', status=404)
 
 
 def error_500(request):
-    return render(request, '404.html')
+    return render(request, '500.html', status=500)

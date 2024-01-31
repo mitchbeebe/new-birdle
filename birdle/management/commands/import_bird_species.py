@@ -20,15 +20,16 @@ class Command(BaseCommand):
                 # Extract the fields from the row
                 category, species_code, name, scientific_name, order, family, genus = row[1], row[2], row[3], row[4], row[5], row[6], row[4].split(' ')[0]
                 url = "https://ebird.org/species/" + row[2] #'https://search.macaulaylibrary.org/catalog?taxonCode=' + row[2]
+                # https://birdsoftheworld.org/bow/species/norcar/cur/introduction
 
                 # Create the Bird object if it doesn't already exist
                 if category == 'species' and not Bird.objects.filter(name=name).exists():
-                    bird = Bird.objects.create(
+                    bird, created = Bird.objects.update_or_create(
                         species_code=species_code,
                         name=name,
                         scientific_name=scientific_name,
                         order=order, 
                         family=family, 
                         genus=genus,
-                        url=url)
+                        defaults={"url": url})
                     self.stdout.write(self.style.SUCCESS(f'Created bird: {bird}'))

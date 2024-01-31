@@ -75,3 +75,10 @@
     position: absolute;
     margin-right: -7.5vw;
 }
+
+.ui-autocomplete {
+    max-height: 300px;
+    overflow-y: auto;
+    /* prevent horizontal scrollbar */
+    overflow-x: hidden;
+  }

@@ -1,6 +1,6 @@
 # New Birdle
 
-This is a Python/Django version of the original [Birdle](https://play-birdle.com), which was written in R/Shiny [here](https://github.com/mitchbeebe/birdle). The new game will feature several improvements:
+This is a Python/Django version of the original [Birdle](https://www.play-birdle.com), which was written in R/Shiny [here](https://github.com/mitchbeebe/birdle). The new game will feature several improvements:
 
 - Improved system uptime (no more grey screen!)
 - More birds (10k+)

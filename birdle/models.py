@@ -41,6 +41,10 @@ class Bird(models.Model):
             'name': self.name,
             'url': self.url
         }
+    
+    def get_images(self):
+        #TODO
+        pass
 
 
 class Game(models.Model):
@@ -59,6 +63,10 @@ class Guess(models.Model):
 
     class Meta:
         verbose_name_plural = "Guesses"
+
+    def get_html(self):
+        #TODO
+        pass
 
 
 class Image(models.Model):

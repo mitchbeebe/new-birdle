@@ -8,7 +8,7 @@ from .forms import FlashcardForm
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 import pytz
-from datetime import date
+from datetime import date, datetime
 from random import choices
 
 
@@ -20,11 +20,15 @@ def todays_game():
 
 def daily_bird(request):
     game = todays_game()
+    
+    # Get user if available
+    username = request.session.get('username', int(datetime.now().timestamp()*100))
+    user, created = User.objects.get_or_create(username=username)
+    request.session["username"] = user.username
+    
     if request.method == "GET":
         imgs = get_bird_images(game.bird)
 
-        # Get user if available
-        user, created = User.objects.get_or_create(id=request.user.id)
         # Get past guesses
         guesses = Guess.objects.filter(user=user, game=game)
         # Convert guesses to Birds
@@ -39,15 +43,18 @@ def daily_bird(request):
         context = {
             "imgs": imgs,
             "is_winner": request.session['is_winner'], 
-            "emojis": build_results_emojis(bird_guesses, game.bird),
+            "emojis": build_results_emojis(game, bird_guesses),
             "guesses_html": guesses_html, 
             "guess_count": request.session['guess_count']
         }
         return render(request, 'birdle/daily_bird.html', context)
     
     elif request.method == "POST":
-        # Get the user
-        user, created = User.objects.get_or_create(id=request.user.id)
+        # # Get user if available
+        # username = request.session.get('username', int(datetime.now().timestamp()*100))
+        # user, created = User.objects.get_or_create(username=username)
+        # request.session.username = user.username
+
         # Check if they still have guesses and have not won already
         if request.session['guess_count'] < 6 and not request.session['is_winner']:
             # Get the Bird the user guessed
@@ -79,7 +86,7 @@ def daily_bird(request):
         
         context = {
             "is_winner": request.session['is_winner'],
-            "emojis": build_results_emojis(bird_guesses, game.bird),
+            "emojis": build_results_emojis(game, bird_guesses),
             "guesses_html": guess_html, 
             "answer": game.bird.taxonomy(),
             "guess_count": request.session['guess_count']
@@ -89,7 +96,7 @@ def daily_bird(request):
 
 def stats(request):
     # Retrieve the user's guess history from the database
-    user, created = User.objects.get_or_create(id=request.user.id)
+    user, created = User.objects.get_or_create(username=request.session["username"])
     user_guesses = Guess.objects.filter(user=user)
     games_played = user_guesses.values_list("game").distinct().count()
     games_won = 1
@@ -182,8 +189,8 @@ def get_bird_images(bird):
 
         range_req = requests.get(f"https://birdsoftheworld.org/bow/species/{bird.species_code}/cur/introduction")
         range_soup = BeautifulSoup(range_req.content, "html.parser")
-        range_url = range_soup.find_all("figure", class_="Figure")[0].find("a")["href"]
-        imgs.append(("Distribution", range_url))
+        range_url = range_soup.find_all("figure", class_="Figure")[0].find("a")["data-asset-src"]
+        imgs.append(("Range", range_url))
 
         for label, url in imgs:
             Image.objects.create(url=url, label=label, bird=bird) 
@@ -198,7 +205,7 @@ def bird_autocomplete(request):
         q &= Q(name__icontains=term)
 
     # Search for birds with names containing the query
-    birds = Bird.objects.filter(q)[:10]
+    birds = Bird.objects.filter(q)[:25]
     
     # Return a list of bird names as the autocomplete options
     options = [bird.name for bird in birds]
@@ -222,17 +229,19 @@ def build_guess_html(guess, answer):
     return guess_html
 
 
-def build_results_emojis(guesses, answer):
+def build_results_emojis(game, guesses, mode=None):
+    answer = game.bird
+    date = game.date.strftime("%Y-%m-%d")
     results = []
     n = ""
     for guess in guesses:
         taxonomy = guess.compare(answer)
         n = len(guesses) if guess == answer else n
-        row = "".join(["🐦" if i else "❌" for i in taxonomy])
+        row = "".join(["🐦" if i else "❌" for i in taxonomy]) # TODO: Add 🐤 if hard mode
         results.append(row)
     emojis = "\n".join(results)
     link = "https://www.play-birdle.com"
-    return f"Birdle #1 {n}/6\n{emojis}\n{link}"
+    return f"Birdle {date} {n}/6\n{emojis}\n{link}"
 
 
 def error_404(request, exception):

@@ -23,7 +23,7 @@ export function game_history(div_id) {
         return dateArray;
     }; 
 
-    const cal = getDates(new Date("2023-07-01"), new Date());
+    const cal = getDates(new Date("2023-11-01"), new Date());
 
 
     const cal_plot = Plot.plot({
@@ -31,7 +31,7 @@ export function game_history(div_id) {
         x: {tickFormat: Plot.formatWeekday(), tickSize: 0, anchor: "top"},
         y: {axis: null},
         fx: {tickFormat: Plot.formatMonth("en", "short"), anchor: "bottom"},
-        color: {type: "categorical", range: ["lightgreen", "pink"], legend: true, label: "Daily Result", domain: ["Win", "Loss"]},
+        color: {type: "categorical", range: ["lightblue", "orange"], legend: true, label: "Daily Result", domain: ["Win", "Loss"]},
         marginTop: 40,
         marks: [
         Plot.cell(cal, {

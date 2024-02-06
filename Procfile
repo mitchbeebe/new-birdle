@@ -1,1 +1,1 @@
-web: gunicorn birdle.wsgi
+web: gunicorn config.wsgi

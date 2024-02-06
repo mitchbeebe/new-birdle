@@ -32,8 +32,7 @@
     align-items: center; /* Vertical center alignment */
     justify-content: center; /* Horizontal center alignment */
     color: white;
-    width: 80px;
-    min-height: 80px;
+    min-height: 60px;
 }
 
 /* .nav-item{
@@ -75,6 +74,14 @@
     position: absolute;
     margin-right: -7.5vw;
 }
+
+.carousel-inner img {
+    height: 25vh;
+    width: 100%;
+    /* overflow: hidden; */
+    object-fit: contain;
+    object-position: center;
+  }
 
 .ui-autocomplete {
     max-height: 300px;

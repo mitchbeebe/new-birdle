@@ -36,7 +36,6 @@
   <nav class="navbar navbar-expand-sm bg-body-tertiary">
     <div class="container-fluid">
       <a class="navbar-brand justify-content-start mx-3" href="{% url 'daily_bird' %}"><i class="fas fa-dove"></i> Birdle</a>
-      {% comment %} <div class="container-fluid justify-content-end"> {% endcomment %}
       <div class="navbar-nav">
         <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
         <a class="nav-link" href="/stats/"><i class="fas fa-chart-bar"></i> Stats</a>
@@ -59,4 +58,15 @@
   {% block extra_scripts %}
   {% endblock %}
 </body>
+<footer class="bg-body-tertiary text-center text-lg-start fixed-bottom">
+  <div class="text-center p-2">
+    Image credit to 
+    {% for img in imgs %}
+      {% if img.photographer is not None %}
+        {{ img.photographer }}{% if not forloop.last %}, {% endif %}
+      {% endif %}
+    {% endfor %}
+      eBird.org
+  </div>
+</footer>
 </html>

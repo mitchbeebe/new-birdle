@@ -4,10 +4,13 @@
 
 {% block content %}
 <div class="d-flex justify-content-center">
-    <p>Pick a family of species to start practicing your bird recognition</p>
+    <p>Pick a region and/or family of species to start practicing your bird recognition</p>
 </div>
 <form method="post" id="flashcard-form" class="row justify-content-center">
     {% csrf_token %}
+        <div class="col-auto">
+            {{ form.region }}
+        </div>
         <div class="col-auto">
             {{ form.family }}
         </div>
@@ -15,25 +18,24 @@
             <button type="submit" id="submitButton" class="btn btn-primary">
                 <span id="spinner" class="spinner-border spinner-border-sm visually-hidden" aria-hidden="true"></span>
                 Show me a bird
-                <span id="status" class="visually-hidden" role="status">Loading...</span>
+                <span class="visually-hidden" role="status">Loading...</span>
             </button>
         </div>
-</form>
-
+        {% for error in form.non_field_errors %}
+        <div class="text-danger text-center pt-2">{{ error }}</div>
+        {% endfor %}
+    </form>
+    
 <br>
-{% include 'birdle/bird_display.html'%}
-{% comment %} <div class="d-flex justify-content-center">
-    <div id="spinner" class="spinner-border" style="width: 3rem; height: 3rem;" role="status">
-      <span class="visually-hidden">Loading...</span>
-    </div>
-  </div> {% endcomment %}
-<br>
-
-<div class="row justify-content-center">
-     <div class="col-auto">
-    {% for option in options %}
-        <button class="btn btn-secondary mx-1 answer" data-mdb-toggle="animation" data-mdb-animation-reset="true" data-mdb-animation="tada" value="{{option}}">{{option}}</button>
-    {% endfor %}
+<div id="display-and-buttons">
+    {% include 'birdle/bird_display.html'%}
+    <br>
+    <div class="row justify-content-center">
+        <div class="col-auto">
+        {% for option in options %}
+            <button class="btn btn-secondary mx-1 answer" data-mdb-toggle="animation" data-mdb-animation-reset="true" data-mdb-animation="tada" value="{{option}}">{{option}}</button>
+        {% endfor %}
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -43,25 +45,30 @@
 document.addEventListener("DOMContentLoaded", function() {
     var submitButton = document.getElementById("submitButton");
     var spinner = document.getElementById("spinner");
+    var displayAndButtons = document.getElementById("display-and-buttons");
 
     submitButton.addEventListener("click", function(event) {
         // Hide the submit button and display the spinner
         spinner.classList.remove("visually-hidden");
+        displayAndButtons.classList.add("visually-hidden");
 
         window.addEventListener("load", function() {
             // Hide the spinner and display the submit button again
             spinner.classList.add("visually-hidden");
+            displayAndButtons.classList.remove("visually-hidden");
         });
     });
 });
 
 $(".answer").click(function() {
     var clickedButton = $(this);
-    var answer = `{{answer}}`;
+    var answer = `{{answer.name | safe}}`;
+
     if (clickedButton.val() == answer) {
         clickedButton.addClass("btn-success");
         Swal.fire({
             title: 'Correct!',
+            html: "Learn more about the <a href=\"{{answer.url}}\" target=_blank>{{answer.name}}</a>.",
             icon: "success",
             confirmButtonText: "Show me another",
             showDenyButton: true,
@@ -69,8 +76,6 @@ $(".answer").click(function() {
           }).then((result) => {
             if (result.isConfirmed) {
                 document.getElementById("submitButton").click();
-            } else if (result.isDenied) {
-                window.location.replace("/practice/");
             }
           });
     } else {

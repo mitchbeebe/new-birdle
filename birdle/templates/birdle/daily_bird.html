@@ -4,15 +4,13 @@
 
 {% block content %}
 <div class="container">
-
   {% include 'birdle/bird_display.html'%}
-  
   <br>
 
-<div class="col-8 mx-auto">
-  <form method="post" id="guess-form" class="row justify-content-center">
-    {% csrf_token %}
-    <input type="hidden" name="user_id" id="user_id" value="">
+  <div class="col-8 mx-auto">
+    <form method="post" id="guess-form" class="row justify-content-center">
+      {% csrf_token %}
+      <input type="hidden" name="user_id" id="user_id" value="">
       <div class="col-10">
         <input type="text" class="form-control" name="guess-input" id="guess-input" placeholder="Guess">
       </div>
@@ -20,12 +18,12 @@
         <button type="submit" class="btn btn-primary">Submit</button>
       </div>
       <div id="error-message" style="color: red;"></div>
-  </form>
-</div>
+    </form>
+  </div>
 
   <br>
 
-  <div id="guesses" class="col-xs-10 col-lg-6 mx-auto">
+  <div id="guesses" class="col-xs-10 col-lg-10 mx-auto">
     <div class="row flex-nowrap">
       <div class="col-sm taxonomy">Order</div>
       <div class="col-sm taxonomy">Family</div>
@@ -40,16 +38,13 @@
 {% block extra_scripts %}
 <script>
   $(document).ready(function () {
-    /*if(localStorage.getItem('user_id') === null) {
-      localStorage.setItem('user_id', Date.now());
-    }
-    $("#user_id").val(localStorage.getItem('user_id'));*/
-    var winner = JSON.parse("{{ is_winner }}".toLowerCase());
-    winner || {{ guess_count }} == 6 ? showAlert(winner, `{{emojis}}`): "";
+    var winner = JSON.parse("{{is_winner}}".toLowerCase());
+    winner || {{ guess_count }} == 6 ? showAlert({{guess_count}}, winner, `{{emojis}}`): "";
   });
 
   $(document).on("submit", "#guess-form", function(e){
     e.preventDefault();
+    $("#user_id").val(localStorage.getItem('user_id'));
     var serializedData = $(this).serialize();
     $.ajax({
       type: "POST",
@@ -58,7 +53,7 @@
       success: function(response){
         $("#guesses").append(response.guesses_html);
         $("#guess-input").val(""); // clear the input field
-        response.is_winner || response.guess_count == 6 ? showAlert(response.is_winner, response.emojis) : "";
+        response.is_winner || response.guess_count == 6 ? showAlert(response.guess_count, response.is_winner, response.emojis) : "";
       },
       error: function(xhr) {
           // Display the error message in the error message div
@@ -72,16 +67,20 @@
               timer: 2000,
               timerProgressBar: true
             });
-            
           }
       }
     });
   });
 
-  function showAlert(is_winner, emojis) {
+  const pluralize = (count, noun, suffix = 'es') =>
+  `${count} ${noun}${count !== 1 ? suffix : ''}`;
+
+  function showAlert(guess_count, is_winner, emojis) {
     const Alert = Swal.mixin({
       title: is_winner ? "Congratulations!" : "Oh no!",
-      text: is_winner ? "You guessed the bird correctly." : "You failed to guess the bird correctly.",
+      html: is_winner ? 
+      `You got today's Birdle in ${pluralize(guess_count, 'guess')}.<br>Learn more about the <a href=\"{{bird.url}}\" target=_blank>{{bird.name}}</a>.` : 
+      "Today's bird was the <a href=\"{{bird.url}}\" target=_blank>{{bird.name}}</a>. But don't fret, <a href='https://birdsarentreal.com/' target=_blank>birds aren't real</a> anyway.",
       icon: is_winner ? "success" : "error",
       confirmButtonText: "Copy Results"
     });

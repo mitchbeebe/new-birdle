@@ -1,13 +1,13 @@
 <!-- bird_display.html -->
 
-<div class="col-sm-8 col-lg-4 mx-auto"> 
+<div class="col-sm-10 col-lg-4 mx-auto"> 
     <div id="carouselExampleControls" class="carousel slide" data-bs-ride="carousel" data-bs-theme="dark">
       <div class="carousel-inner">
         {% for img in imgs %}
           <div class="carousel-item {% if forloop.counter0 == 0 %}active{% endif %}">
-            <img src="{{ img.1 }}" class="img-fluid d-block rounded">
+            <img src="{{ img.url }}" class="img-fluid d-block">
             <div class="carousel-caption d-none d-md-block align-bottom">
-              <span class="img-label">{{ img.0 }}</span>
+              <span class="img-label">{{ img.label }}</span>
             </div>
           </div>
         {% endfor %}

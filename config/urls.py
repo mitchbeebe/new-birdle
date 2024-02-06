@@ -23,7 +23,7 @@ urlpatterns = [
     path('stats/', views.stats, name='stats'),
     path('info/', views.info, name='info'),
     path('practice/', views.practice, name='practice'),
-    path('practice/<str:family>', views.practice, name='practice-family'),
+    path('practice/<str:region>/<str:family>', views.practice, name='practice-region-family'),
     path('api/birds/', views.bird_autocomplete, name='bird_autocomplete'),
     path("admin/", admin.site.urls)
 ]

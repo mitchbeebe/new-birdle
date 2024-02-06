@@ -15,7 +15,7 @@ class GameAdmin(admin.ModelAdmin):
 
 @admin.register(Guess)
 class GuessAdmin(admin.ModelAdmin):
-    list_display = ["id", "game", "user", "bird"]
+    list_display = ["id", "bird"]
 
 class UserAdmin(BaseUserAdmin):
     list_display = ["id", "username", "date_joined", "last_login"]

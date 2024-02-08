@@ -1,16 +1,17 @@
 from django import forms
 from .models import Bird, BirdRegion
 
-REGION_CHOICES = [
-    ('Any', 'Any Region'),
-    *[(val[0], val[0]) for val in BirdRegion.objects.values_list("region_name").distinct().order_by("region_name")]
-]
-
-FAMILY_CHOICES = [
-    ('Any', 'Any Family'),
-    *[(val[0], val[0]) for val in Bird.objects.values_list("family").distinct().order_by("family")]]
 
 class BirdRegionForm(forms.Form):
+    REGION_CHOICES = [
+        ('Any', 'Any Region'),
+        *[(val[0], val[0]) for val in BirdRegion.objects.values_list("region_name").distinct().order_by("region_name")]
+    ]
+
+    FAMILY_CHOICES = [
+        ('Any', 'Any Family'),
+        *[(val[0], val[0]) for val in Bird.objects.values_list("family").distinct().order_by("family")]]
+
     region = forms.ChoiceField(widget=forms.Select(attrs={"class": "form-control"}),
                                choices=REGION_CHOICES)
     family = forms.ChoiceField(widget=forms.Select(attrs={"class": "form-control"}),

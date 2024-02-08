@@ -10,7 +10,7 @@ FAMILY_CHOICES = [
     ('Any', 'Any Family'),
     *[(val[0], val[0]) for val in Bird.objects.values_list("family").distinct().order_by("family")]]
 
-class FlashcardForm(forms.Form):
+class BirdRegionForm(forms.Form):
     region = forms.ChoiceField(widget=forms.Select(attrs={"class": "form-control"}),
                                choices=REGION_CHOICES)
     family = forms.ChoiceField(widget=forms.Select(attrs={"class": "form-control"}),

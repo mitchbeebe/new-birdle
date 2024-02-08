@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 from django.shortcuts import redirect, render
 from urllib.parse import quote, unquote
 from .models import Bird, Guess, User, Game, UserGame, Image, BirdRegion
-from .forms import FlashcardForm
+from .forms import BirdRegionForm
 from django.db.models import Q, F
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
@@ -180,12 +180,12 @@ def practice(request, **kwargs):
                 "options": options,
                 "answer": bird
             })
-            form = FlashcardForm(initial={"region": decoded_region, "family": decoded_family})
+            form = BirdRegionForm(initial={"region": decoded_region, "family": decoded_family})
         else:
-            form = FlashcardForm()
+            form = BirdRegionForm()
         return render(request, "birdle/practice.html", {"form": form, **data})
     elif request.method == "POST":
-        form = FlashcardForm(request.POST)
+        form = BirdRegionForm(request.POST)
         if form.is_valid():
             region = quote(form.cleaned_data["region"])
             family = quote(form.cleaned_data["family"])

@@ -3,19 +3,21 @@ from .models import Bird, BirdRegion
 
 
 class BirdRegionForm(forms.Form):
-    REGION_CHOICES = [
-        ('Any', 'Any Region'),
-        *[(val[0], val[0]) for val in BirdRegion.objects.values_list("region_name").distinct().order_by("region_name")]
-    ]
+    region = forms.ChoiceField(widget=forms.Select(attrs={"class": "form-control"}))
+    family = forms.ChoiceField(widget=forms.Select(attrs={"class": "form-control"}))
+    
+    def __init__(self, *args, **kwargs):
+        super(BirdRegionForm, self).__init__(*args, **kwargs)
+        self.fields['region'].choices = [
+            ('Any', 'Any Region'),
+            *[(val[0], val[0]) for val in BirdRegion.objects.values_list("region_name").distinct().order_by("region_name")]
+        ]
 
-    FAMILY_CHOICES = [
-        ('Any', 'Any Family'),
-        *[(val[0], val[0]) for val in Bird.objects.values_list("family").distinct().order_by("family")]]
+        self.fields['family'].choices = [
+            ('Any', 'Any Family'),
+            *[(val[0], val[0]) for val in Bird.objects.values_list("family").distinct().order_by("family")]
+        ]
 
-    region = forms.ChoiceField(widget=forms.Select(attrs={"class": "form-control"}),
-                               choices=REGION_CHOICES)
-    family = forms.ChoiceField(widget=forms.Select(attrs={"class": "form-control"}),
-                               choices=FAMILY_CHOICES)
     
     def clean(self):
         cleaned_data = super().clean()

@@ -30,3 +30,7 @@ class ImageAdmin(admin.ModelAdmin):
 @admin.register(UserGame)
 class UserGameAdmin(admin.ModelAdmin):
     list_display = ["id", "user", "game", "guess_count", "is_winner"]
+
+@admin.register(BirdRegion)
+class BirdRegionAdmin(admin.ModelAdmin):
+    list_display = ["id", "bird", "region_name"]

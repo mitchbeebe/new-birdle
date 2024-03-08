@@ -28,20 +28,8 @@ class Bird(models.Model):
                 self.genus == other.genus, 
                 self.scientific_name == other.scientific_name]
     
-    def taxonomy(self):
-        return {
-            'order': self.order,
-            'family': self.family,
-            'genus': self.genus,
-            'name': self.name
-        }
-    
     def info(self):
-        return {
-            'species_code': self.species_code,
-            'name': self.name,
-            'url': self.url
-        }
+        return {k: v for k,v in vars(self).items() if k != "_state"}
     
     def get_images(self):
         #TODO
@@ -63,6 +51,10 @@ class Game(models.Model):
 
     def __str__(self):
         return f"{self.date}: {self.bird}"
+    
+    @property
+    def img_count(self):
+        return Image.objects.filter(bird=self.bird).count()
 
 
 class UserGame(models.Model):

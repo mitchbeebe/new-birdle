@@ -10,8 +10,10 @@ class BirdAdmin(admin.ModelAdmin):
 
 @admin.register(Game)
 class GameAdmin(admin.ModelAdmin):
-    list_display = ["id", "date", "bird"]
+    list_display = ["id", "date", "bird", "img_count"]
+    search_fields = ["date"]
     ordering = ('date',)
+    list_filter = ('date',)
 
 @admin.register(Guess)
 class GuessAdmin(admin.ModelAdmin):

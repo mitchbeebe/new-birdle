@@ -3,7 +3,7 @@
 {% extends 'birdle/base.html' %}
 
 {% block content %}
-<div class="container py-3">
+<div class="container pt-2">
   {% include 'birdle/bird_display.html'%}
   <form method="post" id="guess-form">
     {% csrf_token %}
@@ -12,29 +12,65 @@
       <div class="col-9 col-lg-6 px-1">
         <input type="text" class="form-control text-center" name="guess-input" id="guess-input" placeholder="Guess">
       </div>
-      <div class="col-auto px-1">
+      <div class="col-auto px-0">
         <button type="submit" class="btn btn-primary">Submit</button>
       </div>
     </div>
   </form>
 
-  <div id="guesses" class="col-12 col-lg-6 mx-auto px-3 p-lg-4">
+  <div id="guesses" class="col-12 col-lg-6 mx-auto px-2 p-lg-4">
     <div class="row justify-content-center flex-nowrap align-items-end">
       <div class="col-3 taxonomy">Order</div>
       <div class="col-3 taxonomy">Family</div>
       <div class="col-3 taxonomy">Genus</div>
       <div class="col-3 taxonomy">Common Name</div>
     </div>
-    {{ guesses_html | safe }}
+    {% for guess in guesses %}
+    <div class="row justify-content-center flex-nowrap align-items-end">
+      <div class="col-3 taxonomy guess {{guess.correctness.0}}">{{guess.order}}</div>
+      <div class="col-3 taxonomy guess {{guess.correctness.1}}">{{guess.family}}</div>
+      <div class="col-3 taxonomy guess {{guess.correctness.2}}">{{guess.genus}}</div>
+      <div class="col-3 taxonomy guess {{guess.correctness.3}}">{{guess.name}}</div>
+    </div>
+    {% endfor %}
   </div>
 </div>
+
+<button id="infoBtn" class="btn btn-sm btn-secondary shadow visually-hidden rounded-circle position-fixed bottom-0 end-0 mb-4 me-2" type="button"><i class="fas fa-info-circle"></i></button>
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="infoToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="me-auto">Want a hint?</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body">
+      <button id="hintBtn" type="button" class="btn btn-primary btn-sm py-0">Yes</button>
+      <button type="button" class="btn btn-secondary btn-sm py-0" data-bs-dismiss="toast">No</button>
+    </div>
+  </div>
+</div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="hintToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="me-auto">Hint</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body">
+      I'm in the {{ bird.family }} family.
+    </div>
+  </div>
+</div>
+
+<br>
+<br>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
   $(document).ready(function () {
     var winner = JSON.parse("{{is_winner}}".toLowerCase());
-    winner || {{ guess_count }} == 6 ? showAlert({{guess_count}}, winner, `{{emojis}}`): "";
+    winner || {{ guess_count }} == 6 ? showAlert({{ guess_count }}, winner, `{{emojis}}`): "";
+    {{ guess_count }} > 3 ? document.getElementById("infoBtn").classList.remove("visually-hidden") : "";
   });
 
   $(document).on("submit", "#guess-form", function(e){
@@ -46,9 +82,10 @@
       url: "/",
       data:  serializedData,
       success: function(response){
-        $("#guesses").append(response.guesses_html);
+        $("#guesses").append(response.new_guess);
         $("#guess-input").val(""); // clear the input field
         response.is_winner || response.guess_count == 6 ? showAlert(response.guess_count, response.is_winner, response.emojis) : "";
+        response.guess_count > 3 ? document.getElementById("infoBtn").classList.remove("visually-hidden") : "";
       },
       error: function(xhr) {
           // Display the error message in the error message div
@@ -67,8 +104,7 @@
     });
   });
 
-  const pluralize = (count, noun, suffix = 'es') =>
-  `${count} ${noun}${count !== 1 ? suffix : ''}`;
+  const pluralize = (count, noun, suffix = 'es') => `${count} ${noun}${count !== 1 ? suffix : ''}`;
 
   function showAlert(guess_count, is_winner, emojis) {
     const Alert = Swal.mixin({
@@ -96,6 +132,25 @@
       }
     });
   };
+
+  const infoTrigger = document.getElementById('infoBtn');
+  const infoToast = document.getElementById('infoToast');
+  const hintTrigger = document.getElementById('hintBtn');
+  const hintToast = document.getElementById('hintToast');
+
+  if (infoTrigger) {
+    const infoToastBootstrap = bootstrap.Toast.getOrCreateInstance(infoToast);
+    infoTrigger.addEventListener('click', () => {
+      infoToastBootstrap.show();
+      if (hintTrigger) {
+        const hintToastBootstrap = bootstrap.Toast.getOrCreateInstance(hintToast);
+        hintTrigger.addEventListener('click', () => {
+          infoToastBootstrap.hide();
+          hintToastBootstrap.show();
+        })
+      }
+    })
+  }
 </script>
 {% endblock %}
 

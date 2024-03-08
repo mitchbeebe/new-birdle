@@ -7,6 +7,7 @@ from .models import Bird, Guess, User, Game, UserGame, Image, BirdRegion
 from .forms import BirdRegionForm
 from django.db.models import Q, F
 from django.http import HttpResponse, JsonResponse
+from django.template.loader import render_to_string
 from django.contrib import messages
 import pytz
 from datetime import datetime
@@ -26,12 +27,13 @@ def daily_bird(request):
     game = todays_game()
     
     # Get user if available
-    current_username = request.session.get('username', int(datetime.now().timestamp()*100))
-    user, _ = User.objects.get_or_create(username=current_username)
     old_username = request.POST.get('user_id')
+    print(old_username)
     if old_username:
-        user.username = old_username
-        user.save()
+        username = old_username
+    else:
+        username = request.session.get('username', int(datetime.now().timestamp()*100))
+    user, _ = User.objects.get_or_create(username=username)
     request.session["username"] = user.username
 
     usergame, _ = UserGame.objects.get_or_create(user=user, game=game)
@@ -42,16 +44,14 @@ def daily_bird(request):
         guesses = Guess.objects.filter(usergame=usergame)
         # Convert guesses to Birds
         bird_guesses = [guess.bird for guess in guesses]
-        # Build the html for past guesses
-        guesses_html = "".join([build_guess_html(guess, game.bird) for guess in bird_guesses])
 
         context = {
             "imgs": imgs,
             "bird": game.bird,
             "is_winner": usergame.is_winner, 
-            "emojis": build_results_emojis(game, bird_guesses),
-            "guesses_html": guesses_html, 
-            "guess_count": usergame.guess_count
+            "guesses": [{**b.info(), "correctness": b.compare(game.bird)} for b in bird_guesses],
+            "guess_count": usergame.guess_count,
+            "emojis": build_results_emojis(game, bird_guesses)
         }
         return render(request, 'birdle/daily_bird.html', context)
     
@@ -64,16 +64,12 @@ def daily_bird(request):
             except (KeyError, Bird.DoesNotExist):
                 error_msg = "That bird doesn't exist!"
                 return HttpResponse(error_msg, status=400)
-            # Build the html for their guess
-            guess_html = build_guess_html(guess, game.bird)
 
             # Add the user's guess to the database
             Guess.objects.create(
                 usergame=usergame,
                 bird=guess
             )
-        else:
-            guess_html = ""
         
         # Get all user guesses
         guesses = Guess.objects.filter(usergame=usergame)
@@ -83,9 +79,9 @@ def daily_bird(request):
 
         context = {
             "is_winner": usergame.is_winner,
-            "emojis": build_results_emojis(game, bird_guesses),
-            "guesses_html": guess_html,
-            "guess_count": guesses.count()
+            "new_guess": render_to_string("birdle/guess.html", {**guess.info(), "correctness": guess.compare(game.bird)}),
+            "guess_count": guesses.count(),
+            "emojis": build_results_emojis(game, bird_guesses)
         }
         return JsonResponse(context)
 
@@ -118,9 +114,11 @@ def stats(request):
         .map(lambda x: x.strftime("%Y-%m-%d"))
 
     results = [game_results.get(date, "Did not play") for date in date_list]
+    birds = [game.bird.name for game in Game.objects.filter(date__gte=first_game, date__lt=today)]
     history = [
-        {"Date": date, "Result": result} for date, result in zip(date_list, results)
+        {"Date": date, "Result": result, "Bird": bird} for date, result, bird in zip(date_list, results, birds)
     ]
+    # TODO: Hide last day if not played, otherwise show
 
     # Calculate streak
     streaks = []
@@ -196,7 +194,7 @@ def practice(request, **kwargs):
 def get_bird_images(bird):
     images = Image.objects.filter(bird=bird)
 
-    if images.count() > 0:
+    if images.count() > 2:
         return images
     else:
         response = requests.get(bird.url)
@@ -222,6 +220,9 @@ def get_bird_images(bird):
             img = Image.objects.create(url=url, label=label, photographer=photographer, bird=bird) 
             imgs.append(img)
 
+        if len(imgs) <= 1:
+            #TODO: Update game
+            pass
         return imgs
 
 
@@ -238,22 +239,6 @@ def bird_autocomplete(request):
     options = [bird.name for bird in birds]
 
     return JsonResponse(options, safe=False)
-
-
-def build_guess_html(guess, answer):
-    guess_html = ""
-
-    correctness = guess.compare(answer)
-    # construct the taxonomy divs
-    taxonomy = guess.taxonomy()
-    order_div = f'<div class="col-3 taxonomy guess {correctness[0]}">{taxonomy["order"]}</div>'
-    family_div = f'<div class="col-3 taxonomy guess {correctness[1]}">{taxonomy["family"]}</div>'
-    genus_div = f'<div class="col-3 taxonomy guess {correctness[2]}">{taxonomy["genus"]}</div>'
-    species_div = f'<div class="col-3 taxonomy guess {correctness[3]}">{taxonomy["name"]}</div>'
-
-    # combine the divs into a single HTML string
-    guess_html += f'<div class="row justify-content-center flex-nowrap">{order_div}{family_div}{genus_div}{species_div}</div>'
-    return guess_html
 
 
 def build_results_emojis(game, guesses, mode=None):

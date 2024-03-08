@@ -20,24 +20,26 @@
 }
 
 .taxonomy {
-    font-size: 11px;
+    display: flex;
+    font-size: calc(0.5vmax + 7px);
+    line-height: calc(0.5vmax + 7px);
     text-align: center;
+    align-items: center; /* Vertical center alignment */
+    justify-content: center; /* Horizontal center alignment */
     border-radius: 5px;
     margin: 2px;
-    overflow-wrap: break-word; 
+    padding: 2px;
+    word-break: break-word;
+    hyphens: auto;
 }
 
 .guess {
-    display: flex;
-    align-items: center; /* Vertical center alignment */
-    justify-content: center; /* Horizontal center alignment */
+    height: 7.5vh;
     color: white;
-    min-height: 5vh;
-    overflow-wrap: break-word; 
 }
 
 .footer {
-    font-size: 10px;
+    font-size: 9px;
 }
 
 /* CSS for the button jiggle animation */

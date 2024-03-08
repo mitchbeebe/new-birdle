@@ -2,7 +2,7 @@
 
 <!DOCTYPE html>
 {% load static %}
-<html>
+<html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="initial-scale=1">
@@ -18,7 +18,6 @@
         <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script>
         <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/themes/smoothness/jquery-ui.css">
 
-        
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
         <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.3/dist/sweetalert2.min.css" rel="stylesheet">
@@ -36,16 +35,22 @@
 <body>
   <nav class="navbar navbar-expand-sm bg-body-tertiary">
     <div class="container-fluid">
-      <a class="navbar-brand justify-content-start mx-3" href="{% url 'daily_bird' %}"><i class="fas fa-dove"></i> Birdle</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarToggler" aria-controls="navbarToggler" aria-expanded="false" aria-label="Toggle navigation">
+      <a class="navbar-brand justify-content-start mx-2" href="{% url 'daily_bird' %}"><i class="fas fa-dove"></i> Birdle</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#navbarToggler" aria-controls="navbarToggler" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
-      <div class="collapse navbar-collapse" id="navbarToggler">
-        <div class="navbar-nav">
+      <div class="offcanvas offcanvas-end w-50" id="navbarToggler">
+        <div class="offcanvas-header">
+          <h5 class="offcanvas-title" id="offcanvasNavbarLabel">Menu</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+          <ul class="navbar-nav justify-content-end flex-grow-1 pe-3">
           <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
           <a class="nav-link" href="/stats/"><i class="fas fa-chart-bar"></i> Stats</a>
           <a class="nav-link" href="/practice/"><i class="fas fa-graduation-cap"></i> Practice</a>
           <a class="nav-link" href="/info/"><i class="fas fa-info-circle"></i> Info</a>
+          </ul>
         </div>
       </div>
     </div>

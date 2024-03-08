@@ -5,24 +5,19 @@
 {% load static %}
 
 {% block content %}
-<div class="container">
-    <div class="col-sm-10 col-lg-8 mx-auto">
-        <h3>Birdle Stats</h3>
-        <div class="row">
-            <div class="col-4 my-auto">
-                <div>Games Played: {{ games_played }}</div>
-                <div>Games Won: {{ games_won }}</div>
-                <div>Win Percentage: {{ win_pct }}</div>
-                <div>Best Streak: {{ best_streak }}</div>
-                <div>Current Streak: {{ current_streak }}</div>
-            </div>
-            <div class="col-8" id="guess_dist"></div>
-        </div>
-        <br>
+<div class="container text-center pt-2">
+    <div class="col-auto mx-auto">
+        <h3 class="">Stats</h3>
+        <div>Games Played: {{ games_played }}</div>
+        <div>Games Won: {{ games_won }}</div>
+        <div>Win Percentage: {{ win_pct }}</div>
+        <div>Best Streak: {{ best_streak }}</div>
+        <div>Current Streak: {{ current_streak }}</div>
         <hr>
-        <br>
-        <h3 class="text-center">Birdle History</h3>
-        <br>
+        <h3 class="text-center">Guess Distribution</h3>
+        <div class="d-flex justify-content-center" id="guess_dist"></div>
+        <hr>
+        <h3 class="text-center">History</h3>
         <div class="d-flex justify-content-center" id="game_history"></div>
     </div>
 </div>

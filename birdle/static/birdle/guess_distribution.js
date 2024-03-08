@@ -9,7 +9,7 @@ export function guess_distribution(data, div_id) {
             Plot.barX(data, {x: "count", y: "guesses"}),
             Plot.text(data, {x: "count", y: "guesses", text: (d) => (d.count), dx: -10, fill: "white", fontSize: 18}),
             Plot.axisY({label: "Guess Count", fontSize: 18, labelAnchor: "top", labelArrow: "down"}),
-            Plot.axisX({label: "Games Won", ticks: 0, fontSize: 18, labelAnchor: "left"}),
+            Plot.axisX({label: "Games Won", ticks: 0, fontSize: 18, labelAnchor: "left", labelArrow: "right"}),
             Plot.ruleX([0])
         ]});
     const div = document.querySelector(div_id);

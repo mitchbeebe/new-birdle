@@ -3,41 +3,38 @@
 {% extends 'birdle/base.html' %}
 
 {% block content %}
-<div class="d-flex justify-content-center">
-    <p>Pick a region and/or family of species to start practicing your bird recognition</p>
-</div>
-<form method="post" id="flashcard-form" class="row justify-content-center">
+<div class="text-center mx-2 pt-2">Pick a region and/or family of species to start practicing your bird recognition.</div>
+<form method="post" id="flashcard-form" class="justify-content-center py-1">
     {% csrf_token %}
-        <div class="col-auto">
-            {{ form.region }}
-        </div>
-        <div class="col-auto">
-            {{ form.family }}
-        </div>
-        <div class="col-auto">
-            <button type="submit" id="submitButton" class="btn btn-primary">
-                <span id="spinner" class="spinner-border spinner-border-sm visually-hidden" aria-hidden="true"></span>
-                Show me a bird
-                <span class="visually-hidden" role="status">Loading...</span>
-            </button>
-        </div>
-        {% for error in form.non_field_errors %}
-        <div class="text-danger text-center pt-2">{{ error }}</div>
-        {% endfor %}
-    </form>
-    
-<br>
+    <div class="col-lg-6 mx-auto p-1">
+        {{ form.region }}
+    </div>
+    <div class="col-lg-6 mx-auto p-1">
+        {{ form.family }}
+    </div>
+    <div class="d-flex justify-content-center py-1">
+        <button type="submit" id="submitButton" class="btn btn-primary">
+            <span id="spinner" class="spinner-border spinner-border-sm visually-hidden" aria-hidden="true"></span>
+            Show me a bird
+            <span class="visually-hidden" role="status">Loading...</span>
+        </button>
+    </div>
+    {% for error in form.non_field_errors %}
+    <div class="text-danger text-center pt-2">{{ error }}</div>
+    {% endfor %}
+</form>
 <div id="display-and-buttons">
     {% include 'birdle/bird_display.html'%}
-    <br>
-    <div class="row justify-content-center">
-        <div class="col-auto">
-        {% for option in options %}
-            <button class="btn btn-secondary mx-1 answer" data-mdb-toggle="animation" data-mdb-animation-reset="true" data-mdb-animation="tada" value="{{option}}">{{option}}</button>
-        {% endfor %}
+    <div class="col-lg-6 mx-auto align-content-center">
+        <div class="d-flex flex-column py-1">
+            {% for option in options %}
+            <button class="btn btn-secondary my-1 mx-2 answer" data-mdb-toggle="animation" data-mdb-animation-reset="true" data-mdb-animation="tada" value="{{option}}">{{option}}</button>
+            {% endfor %}
         </div>
     </div>
 </div>
+<br>
+<br>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -86,4 +83,8 @@ $(".answer").click(function() {
     }
 })
 </script>
+{% endblock %}
+
+{% block footer %}
+{% include 'birdle/footer.html'%}
 {% endblock %}

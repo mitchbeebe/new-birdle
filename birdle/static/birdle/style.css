@@ -20,10 +20,10 @@
 }
 
 .taxonomy {
-    font-size: 12px;
+    font-size: 11px;
     text-align: center;
     border-radius: 5px;
-    margin: 5px;
+    margin: 2px;
     overflow-wrap: break-word; 
 }
 
@@ -32,13 +32,13 @@
     align-items: center; /* Vertical center alignment */
     justify-content: center; /* Horizontal center alignment */
     color: white;
-    min-height: 60px;
+    min-height: 5vh;
+    overflow-wrap: break-word; 
 }
 
-/* .nav-item{
-    text-align: right;
-} */
-
+.footer {
+    font-size: 10px;
+}
 
 /* CSS for the button jiggle animation */
 /* @keyframes jiggle {
@@ -64,15 +64,9 @@
 }
 
 /* .carousel { overflow: hidden; padding-bottom: 4rem; } */
-.carousel-caption { top: auto; bottom: 0; }
-.carousel-control-prev {
-    position: absolute;
-    margin-left: -7.5vw;
-}
-
-.carousel-control-next {
-    position: absolute;
-    margin-right: -7.5vw;
+.carousel-caption { 
+    top: auto; 
+    bottom: 0; 
 }
 
 .carousel-inner img {
@@ -81,11 +75,11 @@
     /* overflow: hidden; */
     object-fit: contain;
     object-position: center;
-  }
+}
 
 .ui-autocomplete {
     max-height: 300px;
     overflow-y: auto;
     /* prevent horizontal scrollbar */
     overflow-x: hidden;
-  }
+}

@@ -246,13 +246,13 @@ def build_guess_html(guess, answer):
     correctness = guess.compare(answer)
     # construct the taxonomy divs
     taxonomy = guess.taxonomy()
-    order_div = f'<div class="col-sm taxonomy guess text-center {correctness[0]}">{taxonomy["order"]}</div>'
-    family_div = f'<div class="col-sm taxonomy guess text-center {correctness[1]}">{taxonomy["family"]}</div>'
-    genus_div = f'<div class="col-sm taxonomy guess text-center {correctness[2]}">{taxonomy["genus"]}</div>'
-    species_div = f'<div class="col-sm taxonomy guess text-center {correctness[3]}">{taxonomy["name"]}</div>'
+    order_div = f'<div class="col-3 taxonomy guess {correctness[0]}">{taxonomy["order"]}</div>'
+    family_div = f'<div class="col-3 taxonomy guess {correctness[1]}">{taxonomy["family"]}</div>'
+    genus_div = f'<div class="col-3 taxonomy guess {correctness[2]}">{taxonomy["genus"]}</div>'
+    species_div = f'<div class="col-3 taxonomy guess {correctness[3]}">{taxonomy["name"]}</div>'
 
     # combine the divs into a single HTML string
-    guess_html += f'<div class="row flex-nowrap">{order_div}{family_div}{genus_div}{species_div}</div>'
+    guess_html += f'<div class="row justify-content-center flex-nowrap">{order_div}{family_div}{genus_div}{species_div}</div>'
     return guess_html
 
 

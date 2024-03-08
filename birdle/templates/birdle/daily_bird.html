@@ -3,32 +3,27 @@
 {% extends 'birdle/base.html' %}
 
 {% block content %}
-<div class="container">
+<div class="container py-3">
   {% include 'birdle/bird_display.html'%}
-  <br>
-
-  <div class="col-8 mx-auto">
-    <form method="post" id="guess-form" class="row justify-content-center">
-      {% csrf_token %}
-      <input type="hidden" name="user_id" id="user_id" value="">
-      <div class="col-10">
-        <input type="text" class="form-control" name="guess-input" id="guess-input" placeholder="Guess">
+  <form method="post" id="guess-form">
+    {% csrf_token %}
+    <input type="hidden" name="user_id" id="user_id" value="">
+    <div class="row justify-content-center mx-auto py-2">
+      <div class="col-9 col-lg-6 px-1">
+        <input type="text" class="form-control text-center" name="guess-input" id="guess-input" placeholder="Guess">
       </div>
-      <div class="col-2">
+      <div class="col-auto px-1">
         <button type="submit" class="btn btn-primary">Submit</button>
       </div>
-      <div id="error-message" style="color: red;"></div>
-    </form>
-  </div>
+    </div>
+  </form>
 
-  <br>
-
-  <div id="guesses" class="col-xs-10 col-lg-10 mx-auto">
-    <div class="row flex-nowrap">
-      <div class="col-sm taxonomy">Order</div>
-      <div class="col-sm taxonomy">Family</div>
-      <div class="col-sm taxonomy">Genus</div>
-      <div class="col-sm taxonomy">Common Name</div>
+  <div id="guesses" class="col-12 col-lg-6 mx-auto px-3 p-lg-4">
+    <div class="row justify-content-center flex-nowrap align-items-end">
+      <div class="col-3 taxonomy">Order</div>
+      <div class="col-3 taxonomy">Family</div>
+      <div class="col-3 taxonomy">Genus</div>
+      <div class="col-3 taxonomy">Common Name</div>
     </div>
     {{ guesses_html | safe }}
   </div>
@@ -82,7 +77,9 @@
       `You got today's Birdle in ${pluralize(guess_count, 'guess')}.<br>Learn more about the <a href=\"{{bird.url}}\" target=_blank>{{bird.name}}</a>.` : 
       "Today's bird was the <a href=\"{{bird.url}}\" target=_blank>{{bird.name}}</a>. But don't fret, <a href='https://birdsarentreal.com/' target=_blank>birds aren't real</a> anyway.",
       icon: is_winner ? "success" : "error",
-      confirmButtonText: "Copy Results"
+      confirmButtonText: "Copy Results",
+      showDenyButton: true,
+      denyButtonText: "Close"
     });
 
     Alert.fire().then((result) => {
@@ -100,4 +97,8 @@
     });
   };
 </script>
+{% endblock %}
+
+{% block footer %}
+{% include 'birdle/footer.html'%}
 {% endblock %}

@@ -35,19 +35,11 @@
     {% endfor %}
   </div>
 </div>
-<button id="infoBtn" class="btn btn-sm btn-light visually-hidden rounded-circle position-fixed bottom-0 end-0 mb-5 me-2" type="button"><img id="clippy" src="{% static 'birdle/clippy.png' %}" class="img-fluid"></button>
-<div class="toast-container position-fixed bottom-0 end-0 p-3">
-  <div id="infoToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-    <div class="toast-header">
-      <strong class="me-auto">Want a hint?</strong>
-      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-    </div>
-    <div class="toast-body">
-      <button id="hintBtn" type="button" class="btn btn-primary btn-sm py-0">Yes</button>
-      <button type="button" class="btn btn-secondary btn-sm py-0" data-bs-dismiss="toast">No</button>
-    </div>
-  </div>
-</div>
+<button id="clippy" type="button" class="btn btn-sm btn-light visually-hidden rounded-circle position-fixed bottom-0 end-0 mb-5 me-2" data-bs-toggle="popover" data-bs-trigger="focus" title="Want a hint?" data-bs-content='
+<a id="hintBtn" type="button" class="btn btn-primary btn-sm py-0">Yes</a>
+<a type="button" class="btn btn-secondary btn-sm py-0" data-bs-dismiss="toast">No</a>
+' data-bs-html="true"><img src="{% static 'birdle/clippy.png' %}" class="img-fluid"></button>
+
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
   <div id="hintToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
     <div class="toast-header">
@@ -69,7 +61,7 @@
   $(document).ready(function () {
     var winner = JSON.parse("{{is_winner}}".toLowerCase());
     winner || {{ guess_count }} == 6 ? showAlert({{ guess_count }}, winner, `{{emojis}}`): "";
-    {{ guess_count }} > 3 ? document.getElementById("infoBtn").classList.remove("visually-hidden") : "";
+    {{ guess_count }} > 3 ? document.getElementById("clippy").classList.remove("visually-hidden") : "";
   });
 
   $(document).on("submit", "#guess-form", function(e){
@@ -84,7 +76,7 @@
         $("#guesses").append(response.new_guess);
         $("#guess-input").val(""); // clear the input field
         response.is_winner || response.guess_count == 6 ? showAlert(response.guess_count, response.is_winner, response.emojis) : "";
-        response.guess_count > 3 ? document.getElementById("infoBtn").classList.remove("visually-hidden") : "";
+        response.guess_count > 3 ? document.getElementById("clippy").classList.remove("visually-hidden") : "";
       },
       error: function(xhr) {
           // Display the error message in the error message div
@@ -132,24 +124,20 @@
     });
   };
 
-  const infoTrigger = document.getElementById('infoBtn');
-  const infoToast = document.getElementById('infoToast');
-  const hintTrigger = document.getElementById('hintBtn');
-  const hintToast = document.getElementById('hintToast');
+  const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
+  const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
 
-  if (infoTrigger) {
-    const infoToastBootstrap = bootstrap.Toast.getOrCreateInstance(infoToast);
-    infoTrigger.addEventListener('click', () => {
-      infoToastBootstrap.show();
-      if (hintTrigger) {
-        const hintToastBootstrap = bootstrap.Toast.getOrCreateInstance(hintToast);
-        hintTrigger.addEventListener('click', () => {
-          infoToastBootstrap.hide();
-          hintToastBootstrap.show();
-        })
-      }
+  const clippy = document.getElementById('clippy');
+  clippy.addEventListener('shown.bs.popover', () => {
+    const hintToast = document.getElementById('hintToast');
+    const hintToastBootstrap = bootstrap.Toast.getOrCreateInstance(hintToast);
+    const hintTrigger = document.getElementById('hintBtn');
+    
+    hintTrigger.addEventListener('click', () => {
+        hintToastBootstrap.show();
     })
-  }
+  });
+
 </script>
 {% endblock %}
 

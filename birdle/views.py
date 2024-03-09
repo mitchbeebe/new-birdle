@@ -114,11 +114,15 @@ def stats(request):
         .map(lambda x: x.strftime("%Y-%m-%d"))
 
     results = [game_results.get(date, "Did not play") for date in date_list]
-    birds = [game.bird.name for game in Game.objects.filter(date__gte=first_game, date__lt=today)]
+    birds = [game.bird.name for game in Game.objects.filter(date__gte=first_game, date__lte=today)]
     history = [
         {"Date": date, "Result": result, "Bird": bird} for date, result, bird in zip(date_list, results, birds)
     ]
-    # TODO: Hide last day if not played, otherwise show
+    
+    # Hide todays result if they're still playing and haven't won
+    todays_result = list(filter(lambda x: x.game.date == today, usergames))
+    if todays_result:
+        history = history[0:-1] if todays_result[0].guess_count < 6 and not todays_result[0].is_winner else history
 
     # Calculate streak
     streaks = []
@@ -245,7 +249,7 @@ def build_results_emojis(game, guesses, mode=None):
     answer = game.bird
     date = game.date.strftime("%Y-%m-%d")
     results = []
-    n = len(guesses)
+    n = len(guesses) if any([guess == answer for guess in guesses]) else "X"
     for guess in guesses:
         taxonomy = guess.compare(answer)
         row = "".join(["🐦" if i else "❌" for i in taxonomy]) # TODO: Add 🐤 if hard mode

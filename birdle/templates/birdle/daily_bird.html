@@ -1,7 +1,7 @@
 <!-- daily_bird.html -->
 
 {% extends 'birdle/base.html' %}
-
+{% load static %}
 {% block content %}
 <div class="container pt-2">
   {% include 'birdle/bird_display.html'%}
@@ -35,8 +35,7 @@
     {% endfor %}
   </div>
 </div>
-
-<button id="infoBtn" class="btn btn-sm btn-secondary shadow visually-hidden rounded-circle position-fixed bottom-0 end-0 mb-4 me-2" type="button"><i class="fas fa-info-circle"></i></button>
+<button id="infoBtn" class="btn btn-sm btn-light visually-hidden rounded-circle position-fixed bottom-0 end-0 mb-5 me-2" type="button"><img id="clippy" src="{% static 'birdle/clippy.png' %}" class="img-fluid"></button>
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
   <div id="infoToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
     <div class="toast-header">

@@ -2,7 +2,7 @@
 
 <footer class="bg-body-tertiary text-center text-lg-start fixed-bottom">
     <div class="footer text-center py-1">
-      Image credit to 
+      Image credit: 
       {% for img in imgs %}
         {% if img.photographer is not None %}
           {{ img.photographer }}{% if not forloop.last %}, {% endif %}

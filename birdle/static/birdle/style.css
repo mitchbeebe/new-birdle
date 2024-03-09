@@ -1,6 +1,12 @@
 .bird-img {
-    border-radius: 25px;
-    max-height: 250px;
+    max-height: 25vh;
+}
+
+#clippy {
+    max-width: 5vh;
+}
+#infoBtn {
+    box-shadow: 0 1rem 3rem rgb(94, 94, 94);
 }
 
 .img-label {
@@ -34,7 +40,7 @@
 }
 
 .guess {
-    height: 7.5vh;
+    height: 7vh;
     color: white;
 }
 

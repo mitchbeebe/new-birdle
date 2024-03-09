@@ -4,7 +4,7 @@
   <div class="carousel-inner">
     {% for img in imgs %}
       <div class="carousel-item {% if forloop.counter0 == 0 %}active{% endif %}">
-        <img src="{{ img.url }}" class="img-fluid d-block">
+        <img src="{{ img.url }}" class="img-fluid d-block bird-img">
         <div class="carousel-caption align-bottom">
           <span class="img-label">{{ img.label }}</span>
         </div>

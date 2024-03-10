@@ -35,9 +35,9 @@
     {% endfor %}
   </div>
 </div>
-<button id="clippy" type="button" class="btn btn-sm btn-light visually-hidden rounded-circle position-fixed bottom-0 end-0 mb-5 me-2" data-bs-toggle="popover" data-bs-trigger="focus" title="Want a hint?" data-bs-content='
-<a id="hintBtn" type="button" class="btn btn-primary btn-sm py-0">Yes</a>
-<a type="button" class="btn btn-secondary btn-sm py-0" data-bs-dismiss="toast">No</a>
+<button id="clippy" type="button" class="btn btn-sm btn-light visually-hidden rounded-circle position-fixed bottom-0 end-0 mb-5 me-2" data-bs-toggle="popover" data-bs-trigger="click" title="Want a hint?" data-bs-content='
+<a id="hintBtn" tabindex="0" type="button" class="btn btn-primary btn-sm py-0">Yes</a>
+<a id="noBtn" tabindex="0" type="button" class="btn btn-secondary btn-sm py-0">No</a>
 ' data-bs-html="true"><img src="{% static 'birdle/clippy.png' %}" class="img-fluid"></button>
 
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
@@ -123,18 +123,22 @@
       }
     });
   };
-
-  const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
-  const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
-
+  
   const clippy = document.getElementById('clippy');
+  const popover = new bootstrap.Popover(clippy);
+
   clippy.addEventListener('shown.bs.popover', () => {
     const hintToast = document.getElementById('hintToast');
     const hintToastBootstrap = bootstrap.Toast.getOrCreateInstance(hintToast);
     const hintTrigger = document.getElementById('hintBtn');
+    const noTrigger = document.getElementById('noBtn');
     
     hintTrigger.addEventListener('click', () => {
         hintToastBootstrap.show();
+        popover.hide();
+    })
+    noTrigger.addEventListener('click', () => {
+      popover.hide();
     })
   });
 

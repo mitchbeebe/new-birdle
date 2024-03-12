@@ -1,19 +1,18 @@
 import json
+import random
 import requests
 from bs4 import BeautifulSoup
 from django.shortcuts import redirect, render
 from urllib.parse import quote, unquote
 from .models import Bird, Guess, User, Game, UserGame, Image, BirdRegion
 from .forms import BirdRegionForm
-from django.db.models import Q, F
+from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.template.loader import render_to_string
-from django.contrib import messages
 import pytz
 from datetime import datetime
 from random import choices
 from pandas import date_range
-from django.db.models import Min
 
 
 def todays_game():
@@ -28,7 +27,6 @@ def daily_bird(request):
     
     # Get user if available
     old_username = request.POST.get('user_id')
-    print(old_username)
     if old_username:
         username = old_username
     else:
@@ -41,7 +39,7 @@ def daily_bird(request):
     if request.method == "GET":
         imgs = get_bird_images(game.bird)
         # Get past guesses
-        guesses = Guess.objects.filter(usergame=usergame)
+        guesses = Guess.objects.filter(usergame=usergame).order_by('guessed_at')
         # Convert guesses to Birds
         bird_guesses = [guess.bird for guess in guesses]
 
@@ -51,28 +49,29 @@ def daily_bird(request):
             "is_winner": usergame.is_winner, 
             "guesses": [{**b.info(), "correctness": b.compare(game.bird)} for b in bird_guesses],
             "guess_count": usergame.guess_count,
-            "emojis": build_results_emojis(game, bird_guesses)
+            "emojis": build_results_emojis(game, guesses)
         }
         return render(request, 'birdle/daily_bird.html', context)
     
     elif request.method == "POST":
+        # Get the Bird the user guessed
+        try:
+            guess = Bird.objects.get(name=request.POST.get('guess-input'))
+        except (KeyError, Bird.DoesNotExist):
+            error_msg = "That bird doesn't exist!"
+            return HttpResponse(error_msg, status=400)
+        
         # Check if they still have guesses and have not won already
         if usergame.guess_count < 6 and not usergame.is_winner:
-            # Get the Bird the user guessed
-            try:
-                guess = Bird.objects.get(name=request.POST.get('guess-input'))
-            except (KeyError, Bird.DoesNotExist):
-                error_msg = "That bird doesn't exist!"
-                return HttpResponse(error_msg, status=400)
-
             # Add the user's guess to the database
             Guess.objects.create(
                 usergame=usergame,
-                bird=guess
+                bird=guess,
+                hint_used=request.POST.get('hint_used') == 'true'
             )
         
         # Get all user guesses
-        guesses = Guess.objects.filter(usergame=usergame)
+        guesses = Guess.objects.filter(usergame=usergame).order_by('guessed_at')
 
         # Convert guesses to Birds
         bird_guesses = [guess.bird for guess in guesses]
@@ -81,7 +80,7 @@ def daily_bird(request):
             "is_winner": usergame.is_winner,
             "new_guess": render_to_string("birdle/guess.html", {**guess.info(), "correctness": guess.compare(game.bird)}),
             "guess_count": guesses.count(),
-            "emojis": build_results_emojis(game, bird_guesses)
+            "emojis": build_results_emojis(game, guesses)
         }
         return JsonResponse(context)
 
@@ -89,23 +88,28 @@ def daily_bird(request):
 def stats(request):
     # Retrieve the user's guess history from the database
     user, _ = User.objects.get_or_create(username=request.session["username"])
-    usergames = [game for game in UserGame.objects.filter(user=user) if game.guess_count > 0]
+    usergames = UserGame.objects.filter(user=user)
     
-    games_played = len(usergames)
+    games_played = len([game for game in usergames if game.guess_count > 0])
     wins = [game for game in usergames if game.is_winner]
     games_won = len(wins)
     win_pct = games_won/games_played if games_played > 0 else 0
-    guess_counts = [game.guess_count for game in wins]
+    guess_counts = [game.guess_count for game in wins if game.guess_count > 0]
     guess_dist = [
         {"guesses": i, "count": guess_counts.count(i)} for i in range(1, 7)
     ]
 
-    def result(result):
-        return "Win" if result else "Loss"
+    def result(game):
+        if game.guess_count == 0:
+            result = "Did not play"
+        elif game.is_winner:
+            result = "Win"
+        else:
+            result = "Loss"
+        return result
     
     game_results = {
-        str(usergame.game.date): result(usergame.is_winner) \
-              for usergame in usergames
+        str(usergame.game.date): result(usergame) for usergame in usergames
     }
 
     first_game = datetime(2024,1,1) # min([usergame.game.date for usergame in usergames])
@@ -120,9 +124,11 @@ def stats(request):
     ]
     
     # Hide todays result if they're still playing and haven't won
-    todays_result = list(filter(lambda x: x.game.date == today, usergames))
+    todays_result = UserGame.objects.filter(user=user, game=todays_game())
     if todays_result:
         history = history[0:-1] if todays_result[0].guess_count < 6 and not todays_result[0].is_winner else history
+    else:
+        history = history[0:-1]
 
     # Calculate streak
     streaks = []
@@ -198,7 +204,7 @@ def practice(request, **kwargs):
 def get_bird_images(bird):
     images = Image.objects.filter(bird=bird)
 
-    if images.count() > 2:
+    if images.count() > 1:
         return images
     else:
         response = requests.get(bird.url)
@@ -221,12 +227,18 @@ def get_bird_images(bird):
         
         imgs = []
         for (label, url, photographer) in img_list:
-            img = Image.objects.create(url=url, label=label, photographer=photographer, bird=bird) 
+            img, _ = Image.objects.update_or_create(url=url, label=label, photographer=photographer, bird=bird) 
             imgs.append(img)
 
+        # Change bird if fewer than 2 images
         if len(imgs) <= 1:
-            #TODO: Update game
-            pass
+            games = Game.objects.filter(bird=bird)
+            for game in games:
+                bird_count = Bird.objects.count()
+                idx = random.randrange(0, bird_count)
+                game.bird = Bird.objects.get(idx)
+                game.save()
+            #TODO something recursive to get the images for the new game?
         return imgs
 
 
@@ -245,18 +257,18 @@ def bird_autocomplete(request):
     return JsonResponse(options, safe=False)
 
 
-def build_results_emojis(game, guesses, mode=None):
+def build_results_emojis(game, guesses):
     answer = game.bird
-    date = game.date.strftime("%Y-%m-%d")
+    date = game.date.strftime("%B %d, %Y")
     results = []
-    n = len(guesses) if any([guess == answer for guess in guesses]) else "X"
     for guess in guesses:
-        taxonomy = guess.compare(answer)
-        row = "".join(["🐦" if i else "❌" for i in taxonomy]) # TODO: Add 🐤 if hard mode
+        used_hint = "*" if guess.hint_used else ""
+        taxonomy = guess.bird.compare(answer)
+        row = "".join(["🐦" if i else "❌" for i in taxonomy]) + used_hint
         results.append(row)
     emojis = "\n".join(results)
     link = "https://www.play-birdle.com"
-    return f"Birdle {date} {n}/6\n{emojis}\n{link}"
+    return f"Birdle {date}\n{emojis}\n{link}"
 
 
 def error_404(request, exception):

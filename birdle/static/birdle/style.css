@@ -4,7 +4,7 @@
 
 #clippy {
     max-width: 7.5vh;
-    box-shadow: 0 1rem 3rem rgb(94, 94, 94);
+    box-shadow: 0 1rem 1rem -0.5rem rgba(125,125,125);
 }
 
 .img-label {
@@ -67,6 +67,19 @@
 /* Add the 'clicked' class to trigger the animation */
 .jiggle {
     animation: jiggle 0.5s ease infinite; /* Adjust the duration and timing function as needed */
+}
+
+@keyframes bounce {
+    0% { transform: translate(0px, 0px); }
+    20% { transform: translate(0px, 4px); }
+    40% { transform: translate(0px, -4px); }
+    60% { transform: translate(0px, 4px); }
+    80% { transform: translate(0px, -4px); }
+    10% { transform: translate(0px, 0px); }
+}
+
+.bounce {
+    animation: bounce 0.5s ease; /* Adjust the duration and timing function as needed */
 }
 
 /* .carousel { overflow: hidden; padding-bottom: 4rem; } */

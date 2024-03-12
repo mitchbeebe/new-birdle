@@ -8,6 +8,7 @@
   <form method="post" id="guess-form">
     {% csrf_token %}
     <input type="hidden" name="user_id" id="user_id" value="">
+    <input type="hidden" name="hint_used" id="hint_used" value="">
     <div class="row justify-content-center mx-auto py-2">
       <div class="col-9 col-lg-6 px-1">
         <input type="text" class="form-control text-center" name="guess-input" id="guess-input" placeholder="Guess">
@@ -35,9 +36,11 @@
     {% endfor %}
   </div>
 </div>
-<button id="clippy" type="button" class="btn btn-sm btn-light visually-hidden rounded-circle position-fixed bottom-0 end-0 mb-5 me-2" data-bs-toggle="popover" data-bs-trigger="click" title="Want a hint?" data-bs-content='
+<button id="clippy" type="button" class="btn btn-sm btn-light btn-outline-secondary visually-hidden rounded-circle position-fixed bottom-0 end-0 mb-5 me-2" data-bs-toggle="popover" data-bs-trigger="click" title="Want a hint?" data-bs-content='
+<div class="text-center">
 <a id="hintBtn" tabindex="0" type="button" class="btn btn-primary btn-sm py-0">Yes</a>
 <a id="noBtn" tabindex="0" type="button" class="btn btn-secondary btn-sm py-0">No</a>
+</div>
 ' data-bs-html="true"><img src="{% static 'birdle/clippy.png' %}" class="img-fluid"></button>
 
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
@@ -46,7 +49,7 @@
       <strong class="me-auto">Hint</strong>
       <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
     </div>
-    <div class="toast-body">
+    <div class="toast-body" id="hint_msg">
       I'm in the {{ bird.family }} family.
     </div>
   </div>
@@ -58,10 +61,48 @@
 
 {% block extra_scripts %}
 <script>
+  const clippy = document.getElementById('clippy');
+  const popover = new bootstrap.Popover(clippy);
+
+  clippy.addEventListener('shown.bs.popover', () => {
+    const hintToast = document.getElementById('hintToast');
+    const hintToastBootstrap = bootstrap.Toast.getOrCreateInstance(hintToast);
+    const hintTrigger = document.getElementById('hintBtn');
+    const noTrigger = document.getElementById('noBtn');
+    
+    hintTrigger.addEventListener('click', () => {
+        hintToastBootstrap.show();
+        popover.hide();
+        // Note that hint was used
+        $("#hint_used").val('true');
+    })
+    noTrigger.addEventListener('click', () => {
+      popover.hide();
+    })
+  });
+
+  function showAndBounce(e) {
+    e.classList.remove("visually-hidden");
+    e.classList.add("bounce");
+    setTimeout(function() {
+      e.classList.remove("bounce");
+  }, 500);
+  }
+
+  function updateHint(clippyElement, guessCount) {
+    if (guessCount > 3) {
+      showAndBounce(clippyElement);
+      if (guessCount == 5) {
+        popover._config.title = "Want another hint?";
+        document.getElementById("hint_msg").innerText = `My name starts with '{{ bird.name|slice:"0:3" }}'.`
+      }
+    }
+  }
+
   $(document).ready(function () {
     var winner = JSON.parse("{{is_winner}}".toLowerCase());
     winner || {{ guess_count }} == 6 ? showAlert({{ guess_count }}, winner, `{{emojis}}`): "";
-    {{ guess_count }} > 3 ? document.getElementById("clippy").classList.remove("visually-hidden") : "";
+    updateHint(clippy, {{ guess_count }});
   });
 
   $(document).on("submit", "#guess-form", function(e){
@@ -76,7 +117,7 @@
         $("#guesses").append(response.new_guess);
         $("#guess-input").val(""); // clear the input field
         response.is_winner || response.guess_count == 6 ? showAlert(response.guess_count, response.is_winner, response.emojis) : "";
-        response.guess_count > 3 ? document.getElementById("clippy").classList.remove("visually-hidden") : "";
+        updateHint(clippy, response.guess_count);
       },
       error: function(xhr) {
           // Display the error message in the error message div
@@ -123,24 +164,6 @@
       }
     });
   };
-  
-  const clippy = document.getElementById('clippy');
-  const popover = new bootstrap.Popover(clippy);
-
-  clippy.addEventListener('shown.bs.popover', () => {
-    const hintToast = document.getElementById('hintToast');
-    const hintToastBootstrap = bootstrap.Toast.getOrCreateInstance(hintToast);
-    const hintTrigger = document.getElementById('hintBtn');
-    const noTrigger = document.getElementById('noBtn');
-    
-    hintTrigger.addEventListener('click', () => {
-        hintToastBootstrap.show();
-        popover.hide();
-    })
-    noTrigger.addEventListener('click', () => {
-      popover.hide();
-    })
-  });
 
 </script>
 {% endblock %}

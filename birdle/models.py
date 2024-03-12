@@ -78,6 +78,7 @@ class Guess(models.Model):
     usergame = models.ForeignKey(UserGame, on_delete=models.CASCADE)
     bird = models.ForeignKey(Bird, on_delete=models.CASCADE)
     guessed_at = models.DateTimeField(auto_now_add=True)
+    hint_used = models.BooleanField(null=True, default=False)
 
     class Meta:
         verbose_name_plural = "Guesses"

@@ -25,8 +25,8 @@
 
 .taxonomy {
     display: flex;
-    font-size: calc(0.5vmax + 7px);
-    line-height: calc(0.5vmax + 7px);
+    font-size: calc(0.5vmax + 6px);
+    line-height: calc(0.5vmax + 6px);
     text-align: center;
     align-items: center; /* Vertical center alignment */
     justify-content: center; /* Horizontal center alignment */
@@ -38,7 +38,7 @@
 }
 
 .guess {
-    height: 7vh;
+    height: 6vh;
     color: white;
 }
 

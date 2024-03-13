@@ -86,15 +86,22 @@
     e.classList.add("bounce");
     setTimeout(function() {
       e.classList.remove("bounce");
-  }, 500);
+    }, 500);
   }
-
+  
   function updateHint(clippyElement, guessCount) {
-    if (guessCount > 3) {
-      showAndBounce(clippyElement);
-      if (guessCount == 5) {
+    if (guessCount >= 4) {
+      // Only show on 4th guess
+      showAndBounce(clippyElement)
+      if (guessCount == 6) {
+        popover._config.title = "One more hint?";
+        document.getElementById("hint_msg").innerText = "No hint for you. Game over."
+      } else if (guessCount == 5) {
         popover._config.title = "Want another hint?";
         document.getElementById("hint_msg").innerText = `My name starts with '{{ bird.name|slice:"0:3" }}'.`
+        popover.show();
+      } else {
+        popover.show();
       }
     }
   }

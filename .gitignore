@@ -127,3 +127,14 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Postgres
+.my_pgpass
+.pg_service.conf
+
+.DS_Store
+
+# Data for backfilling
+ebird_taxonomy_v2022.csv
+historical-db/
+birdledb.dump

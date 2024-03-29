@@ -1,0 +1,37 @@
+<!-- stats.html -->
+
+{% extends 'birdle/base.html' %}
+
+{% load static %}
+
+{% block content %}
+<div class="container text-center pt-2">
+    <div class="col-auto mx-auto">
+        <h3 class="">Stats</h3>
+        <div>Games Played: {{ games_played }}</div>
+        <div>Games Won: {{ games_won }}</div>
+        <div>Win Percentage: {{ win_pct }}</div>
+        <div>Best Streak: {{ best_streak }}</div>
+        <div>Current Streak: {{ current_streak }}</div>
+        <hr>
+        <h3 class="text-center">Guess Distribution</h3>
+        <div class="d-flex justify-content-center" id="guess_dist"></div>
+        <hr>
+        <h3 class="text-center">History</h3>
+        <div class="d-flex justify-content-center" id="game_history"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script type="module">
+    import {guess_distribution} from "{% static 'birdle/guess_distribution.js' %}";
+    guess_distribution({{ guess_freq | safe }}, "#guess_dist");
+</script> 
+<script type="module">
+    import {game_history} from "{% static 'birdle/game_history.js' %}";
+    game_history({{ history | safe }}, "#game_history");
+</script> 
+{% endblock %}
+

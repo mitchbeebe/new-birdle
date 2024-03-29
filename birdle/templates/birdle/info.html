@@ -1,0 +1,26 @@
+<!-- info.html -->
+
+{% extends 'birdle/base.html' %}
+
+{% block content %}
+<div class="col-10 col-lg-6 mx-auto pt-3">
+    <h2>How to Play</h2>
+    <p>
+        You get six guesses to identify the bird of the day. 
+        If you guess incorrectly, but your guess shares the order, family, or genus 
+        (<a href='https://en.wikipedia.org/wiki/Taxonomic_rank' target=_blank>taxonomic rank</a>) 
+        with the species of the day, the tiles below will turn green. After three guesses, hints
+        are offered. Good luck!
+    </p>
+    <h2>About Me</h2>
+    <p>
+        My name is Mitch (@mitchbeebe on most platforms). I'm the creator and developer of Birdle.
+        Shoot me a message if you have feedback or feel free to open an issue on 
+        <a href="https://github.com/mitchbeebe/new-birdle" target=_blank>GitHub</a>.
+    </p>
+    <p>I pay about $15/month of my own money to keep Birdle running. Consider buying me a coffee if you like the game.</p>
+    <div class="d-flex justify-content-center">
+        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="mitchbeebe" data-color="#FFDD00" data-emoji="" data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
+    </div>
+</div>
+{% endblock %}

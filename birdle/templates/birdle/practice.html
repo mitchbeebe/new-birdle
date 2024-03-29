@@ -1,0 +1,90 @@
+<!-- practice.html -->
+
+{% extends 'birdle/base.html' %}
+
+{% block content %}
+<div class="text-center mx-2 pt-2">Pick a region and/or family of species to start practicing your bird recognition.</div>
+<form method="post" id="flashcard-form" class="justify-content-center py-1">
+    {% csrf_token %}
+    <div class="col-lg-6 mx-auto p-1">
+        {{ form.region }}
+    </div>
+    <div class="col-lg-6 mx-auto p-1">
+        {{ form.family }}
+    </div>
+    <div class="d-flex justify-content-center py-1">
+        <button type="submit" id="submitButton" class="btn btn-primary">
+            <span id="spinner" class="spinner-border spinner-border-sm visually-hidden" aria-hidden="true"></span>
+            Show me a bird
+            <span class="visually-hidden" role="status">Loading...</span>
+        </button>
+    </div>
+    {% for error in form.non_field_errors %}
+    <div class="text-danger text-center pt-2">{{ error }}</div>
+    {% endfor %}
+</form>
+<div id="display-and-buttons">
+    {% include 'birdle/bird_display.html'%}
+    <div class="col-lg-6 mx-auto align-content-center">
+        <div class="d-flex flex-column py-1">
+            {% for option in options %}
+            <button class="btn btn-secondary my-1 mx-2 answer" data-mdb-toggle="animation" data-mdb-animation-reset="true" data-mdb-animation="tada" value="{{option}}">{{option}}</button>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+<br>
+<br>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var submitButton = document.getElementById("submitButton");
+    var spinner = document.getElementById("spinner");
+    var displayAndButtons = document.getElementById("display-and-buttons");
+
+    submitButton.addEventListener("click", function(event) {
+        // Hide the submit button and display the spinner
+        spinner.classList.remove("visually-hidden");
+        displayAndButtons.classList.add("visually-hidden");
+
+        window.addEventListener("load", function() {
+            // Hide the spinner and display the submit button again
+            spinner.classList.add("visually-hidden");
+            displayAndButtons.classList.remove("visually-hidden");
+        });
+    });
+});
+
+$(".answer").click(function() {
+    var clickedButton = $(this);
+    var answer = `{{answer.name | safe}}`;
+
+    if (clickedButton.val() == answer) {
+        clickedButton.addClass("btn-success");
+        Swal.fire({
+            title: 'Correct!',
+            html: "Learn more about the <a href=\"{{answer.url}}\" target=_blank>{{answer.name}}</a>.",
+            icon: "success",
+            confirmButtonText: "Show me another",
+            showDenyButton: true,
+            denyButtonText: "I'm done"
+          }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById("submitButton").click();
+            }
+          });
+    } else {
+        clickedButton.addClass("btn-danger jiggle");
+        setTimeout(function() {
+            clickedButton.removeClass("btn-danger jiggle");
+        }, 500);
+    }
+})
+</script>
+{% endblock %}
+
+{% block footer %}
+{% include 'birdle/footer.html'%}
+{% endblock %}

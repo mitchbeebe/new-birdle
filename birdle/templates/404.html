@@ -1,0 +1,14 @@
+<!-- 404.html -->
+
+{% extends 'birdle/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="col-6 mx-auto">
+    <br>
+    <h3 class="text-center">404: Page Extinct</h3>
+    <br>
+    <br>
+    <img class="img-thumbnail" src="{% static 'birdle/dodo.png' %}" alt="A Dodo Bird">
+</div>
+{% endblock %}

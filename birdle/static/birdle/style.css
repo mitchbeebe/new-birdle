@@ -1,0 +1,96 @@
+.bird-img {
+    max-height: 25vh;
+}
+
+#clippy {
+    max-width: 7.5vh;
+    box-shadow: 0 1rem 1rem -0.5rem rgba(125,125,125);
+}
+
+.img-label {
+    background-color: rgba(0,0,0,.4);
+    color: #fff;
+    padding: 5px 20px 5px 20px;
+    border-radius: 5px;
+    font-size: large;
+}
+
+.True {
+    background-color: #6a5;
+}
+
+.False {
+    background-color: #888;
+}
+
+.taxonomy {
+    display: flex;
+    font-size: calc(0.5vmax + 6px);
+    line-height: calc(0.5vmax + 6px);
+    text-align: center;
+    align-items: center; /* Vertical center alignment */
+    justify-content: center; /* Horizontal center alignment */
+    border-radius: 5px;
+    margin: 2px;
+    padding: 2px;
+    word-break: break-word;
+    hyphens: auto;
+}
+
+.guess {
+    height: 6vh;
+    color: white;
+}
+
+.footer {
+    font-size: 9px;
+}
+
+/* CSS for the button jiggle animation */
+@keyframes jiggle {
+    0% { transform: translate(0px, 0px); }
+    20% { transform: translate(4px, 0px); }
+    40% { transform: translate(-4px, 0px); }
+    60% { transform: translate(4px, 0px); }
+    80% { transform: translate(-4px, 0px); }
+    10% { transform: translate(0px, 0px); }
+}
+
+/* Add the 'clicked' class to trigger the animation */
+.jiggle {
+    animation: jiggle 0.5s ease infinite; /* Adjust the duration and timing function as needed */
+}
+
+@keyframes bounce {
+    0% { transform: translate(0px, 0px); }
+    20% { transform: translate(0px, 4px); }
+    40% { transform: translate(0px, -4px); }
+    60% { transform: translate(0px, 4px); }
+    80% { transform: translate(0px, -4px); }
+    10% { transform: translate(0px, 0px); }
+}
+
+.bounce {
+    animation: bounce 0.5s ease; /* Adjust the duration and timing function as needed */
+}
+
+/* .carousel { overflow: hidden; padding-bottom: 4rem; } */
+.carousel-caption { 
+    top: auto; 
+    bottom: 0; 
+}
+
+.carousel-inner img {
+    height: 25vh;
+    width: 100%;
+    /* overflow: hidden; */
+    object-fit: contain;
+    object-position: center;
+}
+
+.ui-autocomplete {
+    max-height: 300px;
+    overflow-y: auto;
+    /* prevent horizontal scrollbar */
+    overflow-x: hidden;
+}

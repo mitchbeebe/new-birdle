@@ -33,7 +33,7 @@ class Command(BaseCommand):
 
         game, _ = Game.objects.update_or_create(
             date=date,
-            bird=bird
+            defaults={'bird': bird}
         )
         self.stdout.write(self.style.SUCCESS(f'Created game: {game}'))
 

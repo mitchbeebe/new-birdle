@@ -33,8 +33,8 @@ class BirdAdmin(admin.ModelAdmin):
 
 @admin.register(Game)
 class GameAdmin(admin.ModelAdmin):
-    list_display = ["id", "date", linkify("bird"), "img_count"]
-    search_fields = ["date"]
+    list_display = ["id", "date", "region", linkify("bird"), "img_count"]
+    search_fields = ["date", "bird__name"]
     ordering = ('date',)
     list_filter = ('date',)
 
@@ -58,4 +58,9 @@ class UserGameAdmin(admin.ModelAdmin):
 
 @admin.register(BirdRegion)
 class BirdRegionAdmin(admin.ModelAdmin):
-    list_display = ["id", "bird", "region_name"]
+    list_display = ["id", "bird", "region"]
+    search_fields = ["bird__name", "region__name"]
+
+@admin.register(Region)
+class RegionAdmin(admin.ModelAdmin):
+    list_display = ["id", "name", "code"]

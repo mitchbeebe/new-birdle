@@ -6,6 +6,7 @@
 <div class="container pt-2">
   {% include 'birdle/bird_display.html'%}
   <form method="post" id="guess-form">
+    {% csrf_token %}
     <input type="hidden" name="user_id" id="user_id" value="">
     <input type="hidden" name="hint_used" id="hint_used" value="">
     <div class="row justify-content-center mx-auto py-2">

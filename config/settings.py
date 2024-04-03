@@ -182,4 +182,4 @@ WHITENOISE_KEEP_ONLY_HASHED_FILES = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CSRF_TRUSTED_ORIGINS = ['https://play-birdle.com', 'http://play-birdle.com']
+CSRF_TRUSTED_ORIGINS = ['https://play-birdle.com/', 'http://play-birdle.com/', 'http://play-birdle.com/region']

@@ -7,7 +7,7 @@
 {% block content %}
 <div class="container text-center pt-2">
     <div class="col-auto mx-auto">
-        <h3 class="">Stats</h3>
+        <h3 class="">Stats ({{request.session.region|default:"World"}})</h3>
         <div>Games Played: {{ games_played }}</div>
         <div>Games Won: {{ games_won }}</div>
         <div>Win Percentage: {{ win_pct }}</div>

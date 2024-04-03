@@ -25,6 +25,7 @@ urlpatterns = [
     path('practice/', views.practice, name='practice'),
     path('practice/<str:region>/<str:family>', views.practice, name='practice-region-family'),
     path('api/birds/', views.bird_autocomplete, name='bird_autocomplete'),
+    path("region", views.region),
     path("admin/", admin.site.urls)
 ]
 

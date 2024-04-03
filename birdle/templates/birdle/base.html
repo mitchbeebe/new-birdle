@@ -23,6 +23,8 @@
         <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.3/dist/sweetalert2.min.css" rel="stylesheet">
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+        <script src="https://unpkg.com/htmx.org@1.9.11"></script>
+
         <link rel="stylesheet" href="{% static 'birdle/style.css' %}">
         <script src="{% static 'birdle/autocomplete.js' %}"></script>
 
@@ -35,8 +37,24 @@
 <body>
   <nav class="navbar navbar-expand-sm bg-body-tertiary">
     <div class="container-fluid">
-      <a class="navbar-brand justify-content-start mx-2" href="{% url 'daily_bird' %}"><i class="fas fa-dove"></i> Birdle</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#navbarToggler" aria-controls="navbarToggler" aria-expanded="false" aria-label="Toggle navigation">
+      <a class="navbar-brand mx-md-2" href="{% url 'daily_bird' %}"><i class="fas fa-dove"></i> Birdle</a>
+      <ul class="navbar-nav ms-auto me-2">
+        <li class="nav-item dropdown hidden">
+          <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="fas fa-globe-americas"></i>
+            <span id="region"> {{request.session.region|default:"World"}}</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end dropdown-menu-lg-start position-absolute" aria-labelledby="bd-theme-text" data-bs-popper="static">
+            {% get_regions as regions %}
+            {% for code, name in regions.items %}
+            <li>
+              <a href="#" name={{code}} class="dropdown-item" hx-post="/region" hx-target="#region" hx-swap="innerHTML">{{name}}</a>
+            </li>
+            {% endfor%}
+          </ul>
+        </li>
+      </ul>
+      <button class="navbar-toggler px-1" type="button" data-bs-toggle="offcanvas" data-bs-target="#navbarToggler" aria-controls="navbarToggler" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="offcanvas offcanvas-end w-50" id="navbarToggler">
@@ -45,7 +63,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body">
-          <ul class="navbar-nav justify-content-end flex-grow-1 pe-3">
+          <ul class="navbar-nav ms-auto pe-3">
             <li class="nav-item"><a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a></li>
             <li class="nav-item"><a class="nav-link" href="/stats/"><i class="fas fa-chart-bar"></i> Stats</a></li>
             <li class="nav-item"><a class="nav-link" href="/practice/"><i class="fas fa-graduation-cap"></i> Practice</a></li>
@@ -64,6 +82,11 @@
           link.setAttribute("aria-current", "page");
       }
     });
+    </script>
+    <script>
+      document.body.addEventListener('htmx:configRequest', (event) => {
+        event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+      })
     </script>
   {% block extra_scripts %}
   {% endblock %}

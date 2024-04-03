@@ -1,6 +1,7 @@
 <!-- info.html -->
 
 {% extends 'birdle/base.html' %}
+{% load static %}
 
 {% block content %}
 <div class="col-10 col-lg-6 mx-auto pt-3">
@@ -12,15 +13,42 @@
         with the species of the day, the tiles below will turn green. After three guesses, hints
         are offered. Good luck!
     </p>
-    <h2>About Me</h2>
+    <h2>Feedback & Support</h2>
     <p>
-        My name is Mitch (@mitchbeebe on most platforms). I'm the creator and developer of Birdle.
+        My name is Mitch (@mitchbeebe on most platforms). I'm the developer of Birdle.
         Shoot me a message if you have feedback or feel free to open an issue on 
         <a href="https://github.com/mitchbeebe/new-birdle" target=_blank>GitHub</a>.
     </p>
-    <p>I pay about $15/month of my own money to keep Birdle running. Consider buying me a coffee if you like the game.</p>
+    <p>I pay about $15/month to keep Birdle running. Consider buying me a coffee if you like the game.</p>
     <div class="d-flex justify-content-center">
-        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="mitchbeebe" data-color="#FFDD00" data-emoji="" data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
+        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="mitchbeebe" data-color="#FFDD00" data-emoji="☕"  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
+    </div>
+    <br>
+    <h2>The Birdle Team</h2>
+    <div class="row row-gap-0 justify-content-center text-center">
+        <div class="card col border-0 px-1">
+            <img src="{% static 'birdle/mitch.jpg' %}" class="card-img-top" alt="mitch">
+            <div class="card-body text-bg-light px-2">
+                <h6 class="card-title">Mitch</h6>
+                <p class="card-text">Co-Creator & Developer</p>
+            </div>
+        </div>
+        <div class="card col border-0 px-1">
+            <img src="{% static 'birdle/blake.jpg' %}" class="card-img-top" alt="blake">
+            <div class="card-body text-bg-light px-2">
+                <h6 class="card-title">Blake</h6>
+                <p class="card-text">Co-Creator & Chief Ornithologist</p>
+            </div>
+        </div>
+        <div class="card col border-0 px-1">
+            <img src="{% static 'birdle/charlie.jpg' %}" class="card-img-top" alt="charlie">
+            <div class="card-body text-bg-light px-2">
+                <h6 class="card-title">Charlie</h6>
+                <p class="card-text">General Counsel</p>
+            </div>
+        </div>
     </div>
 </div>
+<br>
+<br>
 {% endblock %}

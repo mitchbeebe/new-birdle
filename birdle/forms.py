@@ -1,5 +1,5 @@
 from django import forms
-from .models import Bird, BirdRegion
+from .models import Bird, BirdRegion, Region
 
 
 class BirdRegionForm(forms.Form):
@@ -10,7 +10,7 @@ class BirdRegionForm(forms.Form):
         super(BirdRegionForm, self).__init__(*args, **kwargs)
         self.fields['region'].choices = [
             ('Any', 'Any Region'),
-            *[(val[0], val[0]) for val in BirdRegion.objects.values_list("region_name").distinct().order_by("region_name")]
+            *[(val[0], val[0]) for val in Region.objects.values_list("name").order_by("name")]
         ]
 
         self.fields['family'].choices = [
@@ -26,7 +26,7 @@ class BirdRegionForm(forms.Form):
         
         birdregions = BirdRegion.objects.all()
         if region != "Any":
-            birdregions = birdregions.filter(region_name=region)
+            birdregions = birdregions.filter(region__name=region)
         if family != "Any":
             birdregions = birdregions.filter(bird__family=family)
 

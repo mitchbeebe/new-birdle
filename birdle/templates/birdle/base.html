@@ -34,7 +34,7 @@
   {% block extra_head %}
   {% endblock %}
 </head>
-<body>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   <nav class="navbar navbar-expand-sm bg-body-tertiary">
     <div class="container-fluid">
       <a class="navbar-brand mx-md-2" href="{% url 'daily_bird' %}"><i class="fas fa-dove"></i> Birdle</a>
@@ -82,12 +82,7 @@
           link.setAttribute("aria-current", "page");
       }
     });
-    </script>
-    <script>
-      document.body.addEventListener('htmx:configRequest', (event) => {
-        event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
-      })
-    </script>
+  </script>
   {% block extra_scripts %}
   {% endblock %}
 </body>

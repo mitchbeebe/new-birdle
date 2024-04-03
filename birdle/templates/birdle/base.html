@@ -34,7 +34,7 @@
   {% block extra_head %}
   {% endblock %}
 </head>
-<body>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   <nav class="navbar navbar-expand-sm bg-body-tertiary">
     <div class="container-fluid">
       <a class="navbar-brand mx-md-2" href="{% url 'daily_bird' %}"><i class="fas fa-dove"></i> Birdle</a>
@@ -48,7 +48,7 @@
             {% get_regions as regions %}
             {% for code, name in regions.items %}
             <li>
-              <a href="#" name={{code}} class="dropdown-item" hx-post="/region" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-target="#region" hx-swap="innerHTML">{{name}}</a>
+              <a href="#" name={{code}} class="dropdown-item" hx-post="/region" hx-target="#region" hx-swap="innerHTML">{{name}}</a>
             </li>
             {% endfor%}
           </ul>

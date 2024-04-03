@@ -39,7 +39,7 @@
     <div class="container-fluid">
       <a class="navbar-brand mx-md-2" href="{% url 'daily_bird' %}"><i class="fas fa-dove"></i> Birdle</a>
       <ul class="navbar-nav ms-auto me-2">
-        <li class="nav-item dropdown">
+        <li class="nav-item dropdown hidden">
           <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
             <i class="fas fa-globe-americas"></i>
             <span id="region"> {{request.session.region|default:"World"}}</span>
@@ -67,8 +67,7 @@
             <li class="nav-item"><a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a></li>
             <li class="nav-item"><a class="nav-link" href="/stats/"><i class="fas fa-chart-bar"></i> Stats</a></li>
             <li class="nav-item"><a class="nav-link" href="/practice/"><i class="fas fa-graduation-cap"></i> Practice</a></li>
-            <li class="nav-item"><a class="nav-link" href="/about/"><i class="fas fa-users"></i> About Us</a></li>
-            <li class="nav-item"><a class="nav-link" href="/help/"><i class="fas fa-info-circle"></i> Help</a></li>
+            <li class="nav-item"><a class="nav-link" href="/info/"><i class="fas fa-info-circle"></i> Info</a></li>
           </ul>
         </div>
       </div>

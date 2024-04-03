@@ -169,12 +169,8 @@ def stats(request):
     return render(request, 'birdle/stats.html', stats)
 
 
-def help(request):
-    return render(request, 'birdle/help.html')
-
-
-def about(request):
-    return render(request, 'birdle/about.html')
+def info(request):
+    return render(request, 'birdle/info.html')
 
 
 def practice(request, **kwargs):

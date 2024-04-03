@@ -1,3 +1,4 @@
+import random
 from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -31,23 +32,45 @@ class Bird(models.Model):
     def info(self):
         return {k: v for k,v in vars(self).items() if k != "_state"}
     
+    @classmethod
+    def get_random_bird(cls):
+        bird_count = cls.objects.count()
+        idx = random.randrange(0, bird_count)
+        return cls.objects.get(id=idx)
+    
     def get_images(self):
         #TODO
         pass
 
 
-class BirdRegion(models.Model):
-    bird = models.ForeignKey(Bird, on_delete=models.CASCADE)
-    region_name = models.CharField(max_length=100)
-    region_code = models.CharField(max_length=100)
+class Region(models.Model):
+    code = models.CharField(unique=True, max_length=100)
+    name = models.CharField(max_length=100)
 
     def __str__(self):
-        return f"{self.region_name}: {self.bird.name}"
+        return self.name
+    
+    @classmethod
+    def get_default_pk(cls):
+        region = cls.objects.get(name="World")
+        return region.pk
+
+
+class BirdRegion(models.Model):
+    bird = models.ForeignKey(Bird, on_delete=models.CASCADE)
+    region = models.ForeignKey(Region, null=True, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.region.name}: {self.bird.name}"
 
 
 class Game(models.Model):
-    date = models.DateField(unique=True)
+    date = models.DateField()
     bird = models.ForeignKey(Bird, on_delete=models.CASCADE)
+    region = models.ForeignKey(Region, default=Region.get_default_pk, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('date', 'region')
 
     def __str__(self):
         return f"{self.date}: {self.bird}"

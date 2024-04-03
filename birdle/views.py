@@ -4,26 +4,35 @@ import requests
 from bs4 import BeautifulSoup
 from django.shortcuts import redirect, render
 from urllib.parse import quote, unquote
-from .models import Bird, Guess, User, Game, UserGame, Image, BirdRegion
+from .models import Bird, Guess, User, Game, UserGame, Image, BirdRegion, Region
 from .forms import BirdRegionForm
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.template.loader import render_to_string
+from django.template.defaulttags import register
 import pytz
 from datetime import datetime
 from random import choices
 from pandas import date_range
 
 
-def todays_game():
+def todays_game(region="World"):
     tz = pytz.timezone('US/Eastern')
     today = datetime.utcnow().astimezone(tz).strftime("%Y-%m-%d")
-    game = Game.objects.get(date=today)
+    region = Region.objects.get(name=region)
+    birdregions = BirdRegion.objects.filter(region=region)
+    count = birdregions.count()
+    idx = random.randrange(0, count)
+    game, _ = Game.objects.get_or_create(
+        date=today,
+        region=region,
+        defaults={'bird': birdregions[idx].bird}
+    )
     return game
 
 
 def daily_bird(request):
-    game = todays_game()
+    game = todays_game(request.session.get("region", "World"))
     
     # Get user if available
     old_username = request.POST.get('user_id')
@@ -86,72 +95,85 @@ def daily_bird(request):
 
 
 def stats(request):
+    username = request.session.get("username")
+    region = request.session.get("region", "World")
     # Retrieve the user's guess history from the database
-    user, _ = User.objects.get_or_create(username=request.session["username"])
-    usergames = UserGame.objects.filter(user=user)
-    
-    games_played = len([game for game in usergames if game.guess_count > 0])
-    wins = [game for game in usergames if game.is_winner]
-    games_won = len(wins)
-    win_pct = games_won/games_played if games_played > 0 else 0
-    guess_counts = [game.guess_count for game in wins if game.guess_count > 0]
-    guess_dist = [
-        {"guesses": i, "count": guess_counts.count(i)} for i in range(1, 7)
-    ]
+    if username:
+        usergames = UserGame.objects.filter(user__username=username, game__region__name=region)
+        today = datetime.utcnow().astimezone(pytz.timezone('US/Eastern')).date()
+        first_game = min([usergame.game.date for usergame in usergames] + [today])
+        games = Game.objects.filter(date__gte=first_game, date__lte=today, region__name=region)
+        
+        # User stats
+        games_played = len([game for game in usergames if game.guess_count > 0])
+        wins = [game for game in usergames if game.is_winner]
+        games_won = len(wins)
+        win_pct = games_won/games_played if games_played > 0 else 0
+        guess_counts = [game.guess_count for game in wins if game.guess_count > 0]
+        guess_dist = [
+            {"guesses": i, "count": guess_counts.count(i)} for i in range(1, 7)
+        ]
 
-    def result(game):
-        if game.guess_count == 0:
-            result = "Did not play"
-        elif game.is_winner:
-            result = "Win"
+        def result(game):
+            if game.guess_count == 0:
+                result = "Did not play"
+            elif game.is_winner:
+                result = "Win"
+            else:
+                result = "Loss"
+            return result
+        
+        game_results = {
+            str(usergame.game.date): result(usergame) for usergame in usergames
+        }
+
+        # Create daily data for calendar view
+        date_list = date_range(first_game, today, freq='D').map(lambda x: x.strftime("%Y-%m-%d"))
+        results = [game_results.get(date, "Did not play") for date in date_list]
+        birds = [game.bird.name for game in games]
+        history = [
+            {"Date": date, "Result": result, "Bird": bird} for date, result, bird in zip(date_list, results, birds)
+        ]
+        
+        # Hide todays result if they're still playing and haven't won
+        todays_result = usergames.filter(game__date=today)
+        if todays_result:
+            history = history[0:-1] if todays_result[0].guess_count < 6 and not todays_result[0].is_winner else history
         else:
-            result = "Loss"
-        return result
-    
-    game_results = {
-        str(usergame.game.date): result(usergame) for usergame in usergames
-    }
+            history = history[0:-1]
 
-    first_game = datetime(2024,1,1) # min([usergame.game.date for usergame in usergames])
-    today = todays_game().date
-    date_list = date_range(first_game, today, freq='D') \
-        .map(lambda x: x.strftime("%Y-%m-%d"))
+        # Calculate streak
+        streaks = []
+        streak = 0
+        for result in results:
+            if result == 'Win':
+                streak += 1
+            else:
+                streak = 0
+            streaks.append(streak)
 
-    results = [game_results.get(date, "Did not play") for date in date_list]
-    birds = [game.bird.name for game in Game.objects.filter(date__gte=first_game, date__lte=today)]
-    history = [
-        {"Date": date, "Result": result, "Bird": bird} for date, result, bird in zip(date_list, results, birds)
-    ]
-    
-    # Hide todays result if they're still playing and haven't won
-    todays_result = UserGame.objects.filter(user=user, game=todays_game())
-    if todays_result:
-        history = history[0:-1] if todays_result[0].guess_count < 6 and not todays_result[0].is_winner else history
+        current_streak = streaks[-1]
+        best_streak = max(streaks)
+
+        stats = {
+            "games_played": games_played,
+            "games_won": games_won,
+            "win_pct": f"{win_pct:.0%}",
+            "guess_freq": json.dumps(guess_dist),
+            "history": json.dumps(history),
+            "current_streak": current_streak,
+            "best_streak": best_streak
+        }
     else:
-        history = history[0:-1]
-
-    # Calculate streak
-    streaks = []
-    streak = 0
-    for result in results:
-        if result == 'Win':
-            streak += 1
-        else:
-            streak = 0
-        streaks.append(streak)
-
-    current_streak = streaks[-1]
-    best_streak = max(streaks)
-
-    stats = {
-        "games_played": games_played,
-        "games_won": games_won,
-        "win_pct": f"{win_pct:.0%}",
-        "guess_freq": json.dumps(guess_dist),
-        "history": json.dumps(history),
-        "current_streak": current_streak,
-        "best_streak": best_streak
-    }
+        stats = {
+            "games_played": 0,
+            "games_won": 0,
+            "win_pct": "N/A",
+            "guess_freq": json.dumps([]),
+            "history": json.dumps([]),
+            "current_streak": 0,
+            "best_streak": 0
+        }
     # Render the guess history template with the data
     return render(request, 'birdle/stats.html', stats)
 
@@ -174,7 +196,7 @@ def practice(request, **kwargs):
                 birds = Bird.objects.all()
             else:
                 if decoded_region != "Any":
-                    birdregions = birdregions.filter(region_name=decoded_region)
+                    birdregions = birdregions.filter(region__name=decoded_region)
                 if decoded_family != "Any":
                     birdregions = birdregions.filter(bird__family=decoded_family)
                 birds = [x.bird for x in birdregions]
@@ -202,7 +224,7 @@ def practice(request, **kwargs):
             return render(request, "birdle/practice.html", {"form": form})
 
 def get_bird_images(bird):
-    images = Image.objects.filter(bird=bird)
+    images = Image.objects.filter(bird=bird).order_by("id")
 
     if images.count() > 1:
         return images
@@ -233,23 +255,29 @@ def get_bird_images(bird):
         # Change bird if fewer than 2 images
         if len(imgs) <= 1:
             games = Game.objects.filter(bird=bird)
-            for game in games:
+            if games:
                 bird_count = Bird.objects.count()
                 idx = random.randrange(0, bird_count)
-                game.bird = Bird.objects.get(idx)
-                game.save()
-            #TODO something recursive to get the images for the new game?
+                new_bird = Bird.objects.get(id=idx)
+                for game in games:
+                    game.bird = new_bird
+                    game.save()
+                #TODO something recursive to get the images for the new game?
+                get_bird_images(new_bird)
         return imgs
 
 
 def bird_autocomplete(request):
+    # Only show birds in region
+    region = request.session.get("region", "World")
+
     query = request.GET.get('term', '')
     q = Q()
     for term in query.split(" "):
         q &= Q(name__icontains=term)
 
     # Search for birds with names containing the query
-    birds = Bird.objects.filter(q).order_by("name")
+    birds = Bird.objects.filter(birdregion__region__name=region).filter(q).order_by("name")
     
     # Return a list of bird names as the autocomplete options
     options = [bird.name for bird in birds]
@@ -257,9 +285,31 @@ def bird_autocomplete(request):
     return JsonResponse(options, safe=False)
 
 
+@register.simple_tag
+def get_regions():
+    region_dict = {
+        "world": "World",
+        "na": "North America",
+        "ca": "Central America",
+        "sa": "South America",
+        "eu": "Europe",
+        "af": "Africa",
+        "as": "Asia",
+        "aut": "Australia and Territories"
+        }
+    return region_dict
+
+
+def region(request):
+    region = Region.objects.get(code=request.htmx.trigger_name)
+    request.session["region"] = region.name
+    return HttpResponse(request.session["region"], headers={"HX-Refresh": "true"})
+
+
 def build_results_emojis(game, guesses):
+    region = game.region.name
     answer = game.bird
-    date = game.date.strftime("%B %d, %Y")
+    date = game.date
     results = []
     for guess in guesses:
         used_hint = "*" if guess.hint_used else ""
@@ -268,7 +318,7 @@ def build_results_emojis(game, guesses):
         results.append(row)
     emojis = "\n".join(results)
     link = "https://www.play-birdle.com"
-    return f"Birdle {date}\n{emojis}\n{link}"
+    return f"{region} Birdle\n{date}\n{emojis}\n{link}"
 
 
 def error_404(request, exception):

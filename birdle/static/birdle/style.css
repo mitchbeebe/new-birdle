@@ -94,3 +94,15 @@
     /* prevent horizontal scrollbar */
     overflow-x: hidden;
 }
+
+@media only screen and (max-width: 370px) {
+    .nav-item.dropdown {
+        font-size: 12px;
+    }
+}
+
+@media only screen and (max-width: 425px) {
+    .card-text {
+        font-size: 11px;
+    }
+}

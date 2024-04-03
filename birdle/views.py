@@ -95,76 +95,85 @@ def daily_bird(request):
 
 
 def stats(request):
+    username = request.session.get("username")
+    region = request.session.get("region", "World")
     # Retrieve the user's guess history from the database
-    region = Region.objects.get(name=request.session.get("region", "World"))
-    today = todays_game(region).date
-    games = Game.objects.filter(date__lte=today, region=region)
-    user, _ = User.objects.get_or_create(username=request.session["username"])
-    usergames = UserGame.objects.filter(user=user, game__region=region)
-    
-    # User stats
-    first_game = min([usergame.game.date for usergame in usergames] + [today])
-    games_played = len([game for game in usergames if game.guess_count > 0])
-    wins = [game for game in usergames if game.is_winner]
-    games_won = len(wins)
-    win_pct = games_won/games_played if games_played > 0 else 0
-    guess_counts = [game.guess_count for game in wins if game.guess_count > 0]
-    guess_dist = [
-        {"guesses": i, "count": guess_counts.count(i)} for i in range(1, 7)
-    ]
+    if username:
+        usergames = UserGame.objects.filter(user__username=username, game__region__name=region)
+        today = datetime.utcnow().astimezone(pytz.timezone('US/Eastern')).date()
+        first_game = min([usergame.game.date for usergame in usergames] + [today])
+        games = Game.objects.filter(date__gte=first_game, date__lte=today, region__name=region)
+        
+        # User stats
+        games_played = len([game for game in usergames if game.guess_count > 0])
+        wins = [game for game in usergames if game.is_winner]
+        games_won = len(wins)
+        win_pct = games_won/games_played if games_played > 0 else 0
+        guess_counts = [game.guess_count for game in wins if game.guess_count > 0]
+        guess_dist = [
+            {"guesses": i, "count": guess_counts.count(i)} for i in range(1, 7)
+        ]
 
-    def result(game):
-        if game.guess_count == 0:
-            result = "Did not play"
-        elif game.is_winner:
-            result = "Win"
+        def result(game):
+            if game.guess_count == 0:
+                result = "Did not play"
+            elif game.is_winner:
+                result = "Win"
+            else:
+                result = "Loss"
+            return result
+        
+        game_results = {
+            str(usergame.game.date): result(usergame) for usergame in usergames
+        }
+
+        # Create daily data for calendar view
+        date_list = date_range(first_game, today, freq='D').map(lambda x: x.strftime("%Y-%m-%d"))
+        results = [game_results.get(date, "Did not play") for date in date_list]
+        birds = [game.bird.name for game in games]
+        history = [
+            {"Date": date, "Result": result, "Bird": bird} for date, result, bird in zip(date_list, results, birds)
+        ]
+        
+        # Hide todays result if they're still playing and haven't won
+        todays_result = usergames.filter(game__date=today)
+        if todays_result:
+            history = history[0:-1] if todays_result[0].guess_count < 6 and not todays_result[0].is_winner else history
         else:
-            result = "Loss"
-        return result
-    
-    game_results = {
-        str(usergame.game.date): result(usergame) for usergame in usergames
-    }
+            history = history[0:-1]
 
-    # Create daily data for calendar view
-    date_list = date_range(first_game, today, freq='D') \
-        .map(lambda x: x.strftime("%Y-%m-%d"))
+        # Calculate streak
+        streaks = []
+        streak = 0
+        for result in results:
+            if result == 'Win':
+                streak += 1
+            else:
+                streak = 0
+            streaks.append(streak)
 
-    results = [game_results.get(date, "Did not play") for date in date_list]
-    birds = [game.bird.name for game in Game.objects.filter(date__gte=first_game, date__lte=today, region=region)]
-    history = [
-        {"Date": date, "Result": result, "Bird": bird} for date, result, bird in zip(date_list, results, birds)
-    ]
-    
-    # Hide todays result if they're still playing and haven't won
-    todays_result = UserGame.objects.filter(user=user, game=todays_game(region))
-    if todays_result:
-        history = history[0:-1] if todays_result[0].guess_count < 6 and not todays_result[0].is_winner else history
+        current_streak = streaks[-1]
+        best_streak = max(streaks)
+
+        stats = {
+            "games_played": games_played,
+            "games_won": games_won,
+            "win_pct": f"{win_pct:.0%}",
+            "guess_freq": json.dumps(guess_dist),
+            "history": json.dumps(history),
+            "current_streak": current_streak,
+            "best_streak": best_streak
+        }
     else:
-        history = history[0:-1]
-
-    # Calculate streak
-    streaks = []
-    streak = 0
-    for result in results:
-        if result == 'Win':
-            streak += 1
-        else:
-            streak = 0
-        streaks.append(streak)
-
-    current_streak = streaks[-1]
-    best_streak = max(streaks)
-
-    stats = {
-        "games_played": games_played,
-        "games_won": games_won,
-        "win_pct": f"{win_pct:.0%}",
-        "guess_freq": json.dumps(guess_dist),
-        "history": json.dumps(history),
-        "current_streak": current_streak,
-        "best_streak": best_streak
-    }
+        stats = {
+            "games_played": 0,
+            "games_won": 0,
+            "win_pct": "N/A",
+            "guess_freq": json.dumps([]),
+            "history": json.dumps([]),
+            "current_streak": 0,
+            "best_streak": 0
+        }
     # Render the guess history template with the data
     return render(request, 'birdle/stats.html', stats)
 

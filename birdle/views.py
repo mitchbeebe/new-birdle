@@ -289,6 +289,7 @@ def bird_autocomplete(request):
 def get_regions():
     region_dict = {
         "world": "World",
+        "lower48": "USA Lower 48",
         "na": "North America",
         "ca": "Central America",
         "sa": "South America",

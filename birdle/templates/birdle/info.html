@@ -4,14 +4,18 @@
 {% load static %}
 
 {% block content %}
-<div class="col-10 col-lg-6 mx-auto pt-3">
-    <h2>How to Play</h2>
+<div class="col-10 col-lg-6 mx-auto">
+    <h2 class="pt-3">How to Play</h2>
     <p>
-        You get six guesses to identify the bird of the day. 
-        If you guess incorrectly, but your guess shares the order, family, or genus 
+        You get six guesses to identify the bird of the day. If you guess incorrectly, 
+        but your guess shares the order, family, or genus 
         (<a href='https://en.wikipedia.org/wiki/Taxonomic_rank' target=_blank>taxonomic rank</a>) 
         with the species of the day, the tiles below will turn green. After three guesses, hints
         are offered. Good luck!
+    </p>
+    <p>Note, species may be included in multiple regions. Regions are determined via the 
+        <a href="https://documenter.getpostman.com/view/664302/S1ENwy59#55bd1b26-6951-4a88-943a-d3a8aa1157dd" target=_blank>eBird API</a>
+        for species <em>ever seen in a region</em>.
     </p>
     <h2>Feedback & Support</h2>
     <p>
@@ -23,8 +27,7 @@
     <div class="d-flex justify-content-center">
         <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="mitchbeebe" data-color="#FFDD00" data-emoji="☕"  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
     </div>
-    <br>
-    <h2>The Birdle Team</h2>
+    <h2 class="pt-3">The Birdle Team</h2>
     <div class="row row-gap-0 justify-content-center text-center">
         <div class="card col border-0 px-1">
             <img src="{% static 'birdle/mitch.jpg' %}" class="card-img-top" alt="mitch">
@@ -49,6 +52,5 @@
         </div>
     </div>
 </div>
-<br>
 <br>
 {% endblock %}

@@ -46,7 +46,7 @@ def daily_bird(request):
     usergame, _ = UserGame.objects.get_or_create(user=user, game=game)
     
     if request.method == "GET":
-        imgs = get_bird_images(game.bird)
+        imgs = get_bird_images(bird=game.bird, game=game)
         # Get past guesses
         guesses = Guess.objects.filter(usergame=usergame).order_by('guessed_at')
         # Convert guesses to Birds
@@ -223,7 +223,7 @@ def practice(request, **kwargs):
         else:
             return render(request, "birdle/practice.html", {"form": form})
 
-def get_bird_images(bird):
+def get_bird_images(bird, game=None):
     images = Image.objects.filter(bird=bird).order_by("id")
 
     if images.count() > 1:
@@ -254,16 +254,20 @@ def get_bird_images(bird):
 
         # Change bird if fewer than 2 images
         if len(imgs) <= 1:
-            games = Game.objects.filter(bird=bird)
-            if games:
-                bird_count = Bird.objects.count()
-                idx = random.randrange(0, bird_count)
-                new_bird = Bird.objects.get(id=idx)
-                for game in games:
-                    game.bird = new_bird
-                    game.save()
-                #TODO something recursive to get the images for the new game?
-                get_bird_images(new_bird)
+            # If game is provided, randomly select another bird from the same region
+            if game:
+                birds = Bird.objects.filter(birdregion__region=game.region)
+                idx = random.randrange(0, birds.count())
+                new_bird = birds[idx]
+                game.bird = new_bird
+                game.save()
+            # Otherwise just grab any bird
+            else:
+                birds = Bird.objects.all()
+                idx = random.randrange(0, birds.count())
+                new_bird = birds[idx]
+            # Recursive call to get the images for the new bird
+            imgs = get_bird_images(bird=new_bird, game=game)
         return imgs
 
 

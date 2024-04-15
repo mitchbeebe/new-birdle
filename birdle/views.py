@@ -16,18 +16,39 @@ from random import choices
 from pandas import date_range
 
 
-def todays_game(region="World"):
-    tz = pytz.timezone('US/Eastern')
-    today = datetime.utcnow().astimezone(tz).strftime("%Y-%m-%d")
+def random_bird(region="World"):
+    # Randomly draw a bird from the region provided
     region = Region.objects.get(name=region)
     birdregions = BirdRegion.objects.filter(region=region)
     count = birdregions.count()
     idx = random.randrange(0, count)
-    game, _ = Game.objects.get_or_create(
-        date=today,
-        region=region,
-        defaults={'bird': birdregions[idx].bird}
-    )
+    bird = birdregions[idx].bird
+    return bird
+
+
+def todays_game(region="World"):
+    # Get current date in Eastern time
+    tz = pytz.timezone('US/Eastern')
+    today = datetime.utcnow().astimezone(tz).strftime("%Y-%m-%d")
+    region = Region.objects.get(name=region)
+    try:
+        # Assumes an already created game is valid
+        game = Game.objects.get(date=today, region=region)
+    except Game.DoesNotExist:
+        # Randomly select a bird
+        bird = random_bird(region)
+        imgs = get_bird_images(bird)
+
+        # Create game if at least two images
+        if len(imgs) >= 2:
+            game, _ = Game.objects.update_or_create(
+                date=today,
+                region=region,
+                bird=bird
+            )
+        else:
+            # Redraw bird if fewer than 2 images
+            todays_game(region)
     return game
 
 
@@ -229,7 +250,10 @@ def get_bird_images(bird, game=None):
     if images.count() > 1:
         return images
     else:
-        response = requests.get(bird.url)
+        ebird_sesh = requests.Session()
+        ebird_adapter = requests.adapters.HTTPAdapter(max_retries=3)
+        ebird_sesh.mount('https://', ebird_adapter)
+        response = ebird_sesh.get(bird.url)
         soup = BeautifulSoup(response.content, "html.parser")
         items = soup.find_all("figure", class_="MediaFeed-item")[0:4] 
         labels = [x.find("h3").text or "Version " + str(i+1) for i, x in enumerate(items)]
@@ -252,22 +276,6 @@ def get_bird_images(bird, game=None):
             img, _ = Image.objects.update_or_create(url=url, label=label, photographer=photographer, bird=bird) 
             imgs.append(img)
 
-        # Change bird if fewer than 2 images
-        if len(imgs) <= 1:
-            # If game is provided, randomly select another bird from the same region
-            if game:
-                birds = Bird.objects.filter(birdregion__region=game.region)
-                idx = random.randrange(0, birds.count())
-                new_bird = birds[idx]
-                game.bird = new_bird
-                game.save()
-            # Otherwise just grab any bird
-            else:
-                birds = Bird.objects.all()
-                idx = random.randrange(0, birds.count())
-                new_bird = birds[idx]
-            # Recursive call to get the images for the new bird
-            imgs = get_bird_images(bird=new_bird, game=game)
         return imgs
 
 

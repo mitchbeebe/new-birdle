@@ -24,6 +24,7 @@ class Command(BaseCommand):
         ]
 
         for region_code in region_codes:
+            self.stdout.write(f'Beginning update for {region_code}')
             start = datetime.now()
             region = Region.objects.get(code=region_code)
             
@@ -41,19 +42,23 @@ class Command(BaseCommand):
             # Get all recently observed species from each chunk of countries
             species_codes = []
             for chunk in chunks:
+                country_chunk = ','.join(chunk)
+                self.stdout.write(f'Fetching observations from {country_chunk}')
+                
                 observations = requests.get(
-                    f"https://api.ebird.org/v2/data/obs/world/recent?back=30&r={','.join(chunk)}",
+                    f"https://api.ebird.org/v2/data/obs/world/recent?back=30&r={country_chunk}",
                     headers={'X-eBirdApiToken': api_key}
                 ).json()
 
                 # Add all non-exotic species to our list
+                # "Exotic" defined here https://support.ebird.org/en/support/solutions/articles/48001218430-exotic-and-introduced-species-in-ebird
                 species_codes += [observation.get('speciesCode') for observation in observations if not observation.get('exoticCategory')]
 
-            new_birds_in_region = Bird.objects.get(species_code__in=species_codes)
+            new_birds_in_region = Bird.objects.filter(species_code__in=species_codes)
 
             # Remove birds not seen recently
             birds_to_remove = old_birds_in_region.difference(new_birds_in_region)
-            BirdRegion.objects.filter(bird__in=birds_to_remove).delete()
+            BirdRegion.objects.filter(region=region, bird__in=birds_to_remove.values('id')).delete()
 
             # Add birds not already in the region
             birds_to_add = new_birds_in_region.difference(old_birds_in_region)

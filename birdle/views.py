@@ -123,7 +123,7 @@ def stats(request):
         usergames = UserGame.objects.filter(user__username=username, game__region__name=region)
         today = datetime.utcnow().astimezone(pytz.timezone('US/Eastern')).date()
         first_game = min([usergame.game.date for usergame in usergames] + [today])
-        games = Game.objects.filter(date__gte=first_game, date__lte=today, region__name=region)
+        games = Game.objects.filter(date__gte=first_game, date__lte=today, region__name=region).order_by("date")
         
         # User stats
         games_played = len([game for game in usergames if game.guess_count > 0])

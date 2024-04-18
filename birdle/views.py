@@ -1,5 +1,6 @@
 import json
 import random
+import re
 import requests
 from bs4 import BeautifulSoup
 from django.shortcuts import redirect, render
@@ -250,26 +251,41 @@ def get_bird_images(bird, game=None):
     if images.count() > 1:
         return images
     else:
+        # Open session to try three requests three times
         ebird_sesh = requests.Session()
         ebird_adapter = requests.adapters.HTTPAdapter(max_retries=3)
         ebird_sesh.mount('https://', ebird_adapter)
+        
+        # Get and parse the bird page on eBird
         response = ebird_sesh.get(bird.url)
         soup = BeautifulSoup(response.content, "html.parser")
-        items = soup.find_all("figure", class_="MediaFeed-item")[0:4] 
-        labels = [x.find("h3").text or "Version " + str(i+1) for i, x in enumerate(items)]
-        raw_photographer = [x.find("img")["alt"] for x in items]
-        photographer = [p.replace(bird.name + " - ", "") for p in raw_photographer]
-        urls = [x.find("img")["src"] for x in items]
+        
+        # Get divs that contain images and captions
+        items = soup.find_all("div", class_="CarouselResponsive-slide--photo")
+
+        # Get labels and photographer from the image alt text
+        alt_labels = [x.find("img", class_="Species-media-image")["alt"] for x in items]
+        raw_labels = [l.split(" - ")[0] for l in alt_labels]
+        labels = [label or "Version " + str(i+1) for i, label in enumerate(raw_labels)]
+        photographer = [p.split(" - ")[1] for p in alt_labels]
+
+        # Get the image url
+        url_srcs = [x.find("img")["srcset"] for x in items]
+        pattern = "https:\/\/cdn.download\.ams.birds\.cornell\.edu\/api\/v1\/asset\/\d+\/1800"
+        urls = [re.search(pattern, src).group() for src in url_srcs]
+        
+        # Zip everything together
         img_list = list(zip(labels, urls, photographer))
 
+        # Get the range, if it exists
         range_req = requests.get(f"https://birdsoftheworld.org/bow/species/{bird.species_code}/cur/introduction")
         range_soup = BeautifulSoup(range_req.content, "html.parser")
-        
         try:
             range_url = range_soup.find_all("figure", class_="Figure")[0].find("a")["data-asset-src"]
-            img_list.append(("Range", range_url, None))
         except IndexError:
             HttpResponse("Range not found", status=400)
+        else:
+            img_list.append(("Range", range_url, None))
         
         imgs = []
         for (label, url, photographer) in img_list:

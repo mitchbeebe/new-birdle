@@ -12,7 +12,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         load_dotenv("birdle/.env")
-        api_key = os.getenv("EBIRD_API_KEY")
+        api_key = os.getenv("SECRET_KEY")
         regions = Region.objects.all()
 
         for region in regions:

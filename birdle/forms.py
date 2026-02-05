@@ -1,4 +1,7 @@
+from typing import cast
+
 from django import forms
+
 from .models import Bird, BirdRegion, Region
 
 
@@ -8,12 +11,14 @@ class BirdRegionForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super(BirdRegionForm, self).__init__(*args, **kwargs)
-        self.fields["region"].choices = [
+        region_field = cast(forms.ChoiceField, self.fields["region"])
+        region_field.choices = [
             ("Any", "Any Region"),
             *[(val[0], val[0]) for val in Region.objects.values_list("name").order_by("name")],
         ]
 
-        self.fields["family"].choices = [
+        family_field = cast(forms.ChoiceField, self.fields["family"])
+        family_field.choices = [
             ("Any", "Any Family"),
             *[
                 (val[0], val[0])
@@ -22,7 +27,7 @@ class BirdRegionForm(forms.Form):
         ]
 
     def clean(self):
-        cleaned_data = super().clean()
+        cleaned_data = super().clean() or {}
         region = cleaned_data.get("region")
         family = cleaned_data.get("family")
 

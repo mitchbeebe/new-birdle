@@ -40,6 +40,7 @@ dependencies = [
     { name = "django" },
     { name = "django-htmx" },
     { name = "django-on-heroku" },
+    { name = "django-stubs" },
     { name = "gunicorn" },
     { name = "idna" },
     { name = "numpy" },
@@ -70,6 +71,7 @@ requires-dist = [
     { name = "django", specifier = "==5.0.1" },
     { name = "django-htmx", specifier = "==1.17.3" },
     { name = "django-on-heroku", specifier = "==1.1.2" },
+    { name = "django-stubs", specifier = ">=5.0.0" },
     { name = "gunicorn", specifier = "==21.2.0" },
     { name = "idna", specifier = "==3.6" },
     { name = "numpy", specifier = "==1.26.3" },
@@ -191,6 +193,35 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/55/ef/f2518a11ce08e0a0cf8dce658b5353eb503735ad134da2ef8096568fd101/django-on-heroku-1.1.2.tar.gz", hash = "sha256:a41fe83ef7ecb022ca92b2950a61f79fef156e58f4f35fc7fc4ecacdc5225fb8", size = 6253, upload-time = "2020-10-04T16:04:04.641Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/34/8e/2efcb3afdc78f3222cf53dc0ab0684805d79a973ed83c2fd2c25b2351df7/django_on_heroku-1.1.2-py2.py3-none-any.whl", hash = "sha256:4a72ade056335112cba22eea332552d840b718dd8140d43c2d70bb739875955b", size = 6112, upload-time = "2020-10-04T16:04:03.244Z" },
+]
+
+[[package]]
+name = "django-stubs"
+version = "5.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "asgiref" },
+    { name = "django" },
+    { name = "django-stubs-ext" },
+    { name = "types-pyyaml" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/17/24/61bf4c69e825af96f47b8c009c01939b31af4a883bfcb394d0bb7a3e1571/django_stubs-5.0.0.tar.gz", hash = "sha256:b8a792bee526d6cab31e197cb414ee7fa218abd931a50948c66a80b3a2548621", size = 263121, upload-time = "2024-04-30T10:03:14.431Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/d9/70f9cba274001358cee7b2a4fc34640b919200cbe898e3c7819e40538088/django_stubs-5.0.0-py3-none-any.whl", hash = "sha256:084484cbe16a6d388e80ec687e46f529d67a232f3befaf55c936b3b476be289d", size = 462898, upload-time = "2024-04-30T10:03:11.684Z" },
+]
+
+[[package]]
+name = "django-stubs-ext"
+version = "5.2.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/55/03/9c2be939490d2282328db4611bc5956899f5ff7eabc3e88bd4b964a87373/django_stubs_ext-5.2.9.tar.gz", hash = "sha256:6db4054d1580657b979b7d391474719f1a978773e66c7070a5e246cd445a25a9", size = 6497, upload-time = "2026-01-20T23:58:59.462Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/f7/0d5f7d7e76fe972d9f560f687fdc0cab4db9e1624fd90728ca29b4ed7a63/django_stubs_ext-5.2.9-py3-none-any.whl", hash = "sha256:230c51575551b0165be40177f0f6805f1e3ebf799b835c85f5d64c371ca6cf71", size = 9974, upload-time = "2026-01-20T23:58:58.438Z" },
 ]
 
 [[package]]
@@ -389,6 +420,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/65/16/10f170ec641ed852611b6c9441b23d10b5702ab5288371feab3d36de2574/sqlparse-0.4.4.tar.gz", hash = "sha256:d446183e84b8349fa3061f0fe7f06ca94ba65b426946ffebe6e3e8295332420c", size = 72383, upload-time = "2023-04-18T08:30:41.994Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/98/5a/66d7c9305baa9f11857f247d4ba761402cea75db6058ff850ed7128957b7/sqlparse-0.4.4-py3-none-any.whl", hash = "sha256:5430a4fe2ac7d0f93e66f1efc6e1338a41884b7ddf2a350cedd20ccc4d9d28f3", size = 41183, upload-time = "2023-04-18T08:30:36.96Z" },
+]
+
+[[package]]
+name = "types-pyyaml"
+version = "6.0.12.20250915"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7e/69/3c51b36d04da19b92f9e815be12753125bd8bc247ba0470a982e6979e71c/types_pyyaml-6.0.12.20250915.tar.gz", hash = "sha256:0f8b54a528c303f0e6f7165687dd33fafa81c807fcac23f632b63aa624ced1d3", size = 17522, upload-time = "2025-09-15T03:01:00.728Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/e0/1eed384f02555dde685fff1a1ac805c1c7dcb6dd019c916fe659b1c1f9ec/types_pyyaml-6.0.12.20250915-py3-none-any.whl", hash = "sha256:e7d4d9e064e89a3b3cae120b4990cd370874d2bf12fa5f46c97018dd5d3c9ab6", size = 20338, upload-time = "2025-09-15T03:00:59.218Z" },
 ]
 
 [[package]]

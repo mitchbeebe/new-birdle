@@ -11,6 +11,7 @@ dependencies = [
     "django==5.0.1",
     "django-htmx==1.17.3",
     "django-on-heroku==1.1.2",
+    "django-stubs>=5.0.0",
     "gunicorn==21.2.0",
     "idna==3.6",
     "numpy==1.26.3",
@@ -40,5 +41,4 @@ select = ["E", "F", "W"]
 # Ignore Django-specific type errors that require django-stubs
 # The 'objects' manager and 'DoesNotExist' exception are added dynamically by Django
 [tool.ty.rules]
-unresolved-attribute = "ignore"
-possibly-missing-attribute = "ignore"
+

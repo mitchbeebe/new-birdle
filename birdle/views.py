@@ -126,14 +126,21 @@ def daily_bird(request, region_code=None):
         # Convert guesses to Birds
         bird_guesses = [guess.bird for guess in guesses]
 
+        correctness = guess.compare(game.bird)
         context = {
             "is_winner": usergame.is_winner,
             "new_guess": render_to_string(
                 "birdle/guess.html",
-                {**guess.info(), "correctness": guess.compare(game.bird)},
+                {**guess.info(), "correctness": correctness},
             ),
             "guess_count": guesses.count(),
             "emojis": build_results_emojis(game, guesses),
+            # Include taxonomy data for autocomplete filtering
+            "taxonomy": {
+                "order": guess.order if correctness[0] else None,
+                "family": guess.family if correctness[1] else None,
+                "genus": guess.genus if correctness[2] else None,
+            },
         }
         return JsonResponse(context)
 
@@ -341,6 +348,18 @@ def bird_autocomplete(request):
     q = Q()
     for term in query.split(" "):
         q &= Q(name__icontains=term)
+
+    # Filter by correctly guessed taxonomy (if provided)
+    order_filter = request.GET.get("order")
+    family_filter = request.GET.get("family")
+    genus_filter = request.GET.get("genus")
+
+    if order_filter:
+        q &= Q(order=order_filter)
+    if family_filter:
+        q &= Q(family=family_filter)
+    if genus_filter:
+        q &= Q(genus=genus_filter)
 
     # Search for birds with names containing the query
     birds = Bird.objects.filter(birdregion__region__code=region_code).filter(q).order_by("name")

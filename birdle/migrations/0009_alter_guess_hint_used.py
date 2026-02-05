@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('birdle', '0008_guess_hint_used'),
+        ("birdle", "0008_guess_hint_used"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='guess',
-            name='hint_used',
+            model_name="guess",
+            name="hint_used",
             field=models.BooleanField(default=False, null=True),
         ),
     ]

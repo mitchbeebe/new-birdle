@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('birdle', '0007_alter_bird_species_code'),
+        ("birdle", "0007_alter_bird_species_code"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='guess',
-            name='hint_used',
+            model_name="guess",
+            name="hint_used",
             field=models.BooleanField(null=True),
         ),
     ]

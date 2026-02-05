@@ -6,7 +6,6 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -15,46 +14,112 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Bird',
+            name="Bird",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('species_code', models.CharField(max_length=100)),
-                ('name', models.CharField(max_length=100)),
-                ('scientific_name', models.CharField(max_length=100)),
-                ('order', models.CharField(max_length=100)),
-                ('family', models.CharField(max_length=100)),
-                ('genus', models.CharField(max_length=100)),
-                ('url', models.URLField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("species_code", models.CharField(max_length=100)),
+                ("name", models.CharField(max_length=100)),
+                ("scientific_name", models.CharField(max_length=100)),
+                ("order", models.CharField(max_length=100)),
+                ("family", models.CharField(max_length=100)),
+                ("genus", models.CharField(max_length=100)),
+                ("url", models.URLField()),
             ],
         ),
         migrations.CreateModel(
-            name='Game',
+            name="Game",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('date', models.DateField()),
-                ('bird', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='birdle.bird')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("date", models.DateField()),
+                (
+                    "bird",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="birdle.bird",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Image',
+            name="Image",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('url', models.URLField()),
-                ('label', models.CharField(max_length=100)),
-                ('bird', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='birdle.bird')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("url", models.URLField()),
+                ("label", models.CharField(max_length=100)),
+                (
+                    "bird",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="birdle.bird",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Guess',
+            name="Guess",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('guessed_at', models.DateTimeField(auto_now_add=True)),
-                ('bird', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='birdle.bird')),
-                ('game', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='birdle.game')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("guessed_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "bird",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="birdle.bird",
+                    ),
+                ),
+                (
+                    "game",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="birdle.game",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name_plural': 'Guesses',
+                "verbose_name_plural": "Guesses",
             },
         ),
     ]

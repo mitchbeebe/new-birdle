@@ -6,41 +6,59 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('birdle', '0001_initial'),
+        ("birdle", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='game',
-            name='bird',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='birdle.bird'),
+            model_name="game",
+            name="bird",
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="birdle.bird"),
         ),
         migrations.AlterField(
-            model_name='guess',
-            name='bird',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='birdle.bird'),
+            model_name="guess",
+            name="bird",
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="birdle.bird"),
         ),
         migrations.AlterField(
-            model_name='guess',
-            name='game',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='birdle.game'),
+            model_name="guess",
+            name="game",
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="birdle.game"),
         ),
         migrations.AlterField(
-            model_name='image',
-            name='bird',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='birdle.bird'),
+            model_name="image",
+            name="bird",
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="birdle.bird"),
         ),
         migrations.CreateModel(
-            name='UserGame',
+            name="UserGame",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('guess_count', models.IntegerField()),
-                ('is_winner', models.BooleanField()),
-                ('game', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='birdle.game')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("guess_count", models.IntegerField()),
+                ("is_winner", models.BooleanField()),
+                (
+                    "game",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, to="birdle.game"
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
     ]

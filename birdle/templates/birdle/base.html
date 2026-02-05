@@ -38,12 +38,13 @@
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   <nav class="navbar navbar-expand-sm bg-body-tertiary">
     <div class="container-fluid">
-      <a class="navbar-brand mx-md-2" href="{% url 'daily_bird' %}"><i class="fas fa-dove"></i> Birdle</a>
+      {% current_region_code as nav_region_code %}
+      <a class="navbar-brand mx-md-2" href="/{{nav_region_code}}/"><i class="fas fa-dove"></i> Birdle</a>
       <ul class="navbar-nav ms-auto me-2">
         <li class="nav-item dropdown hidden">
           <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
             <i class="fas fa-globe-americas"></i>
-            <span id="region"> {{request.session.region|default:"World"}}</span>
+            <span id="region"> {{request.session.region_code|default:"world"|region_name}}</span>
           </a>
           <ul class="dropdown-menu dropdown-menu-end dropdown-menu-lg-start position-absolute" aria-labelledby="bd-theme-text" data-bs-popper="static">
             {% get_regions as regions %}
@@ -65,8 +66,8 @@
         </div>
         <div class="offcanvas-body">
           <ul class="navbar-nav ms-auto pe-3">
-            <li class="nav-item"><a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a></li>
-            <li class="nav-item"><a class="nav-link" href="/stats/"><i class="fas fa-chart-bar"></i> Stats</a></li>
+            <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/"><i class="fas fa-home"></i> Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/stats/"><i class="fas fa-chart-bar"></i> Stats</a></li>
             <li class="nav-item"><a class="nav-link" href="/practice/"><i class="fas fa-graduation-cap"></i> Practice</a></li>
             <li class="nav-item"><a class="nav-link" href="/info/"><i class="fas fa-info-circle"></i> Info</a></li>
           </ul>

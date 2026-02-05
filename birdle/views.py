@@ -5,12 +5,12 @@ import requests
 import requests.adapters
 from bs4 import BeautifulSoup
 from django.shortcuts import redirect, render
-from urllib.parse import quote, unquote
+from urllib.parse import quote, unquote, urlparse
 from django.contrib.auth.models import User
 from .models import Bird, Guess, Game, UserGame, Image, BirdRegion, Region
 from .forms import BirdRegionForm
 from django.db.models import Q
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.template.loader import render_to_string
 from django.template.defaulttags import register
 import pytz
@@ -19,9 +19,9 @@ from random import choices
 from pandas import date_range
 
 
-def random_bird(region="World"):
+def random_bird(region_code="world"):
     # Randomly draw a bird from the region provided
-    region = Region.objects.get(name=region)
+    region = Region.objects.get(code=region_code)
     birdregions = BirdRegion.objects.filter(region=region)
     count = birdregions.count()
     idx = random.randrange(0, count)
@@ -38,18 +38,18 @@ def get_user_timezone(request):
         return pytz.timezone("US/Eastern")
 
 
-def todays_game(region="World", tz=None):
+def todays_game(region_code="world", tz=None):
     # Get current date in user's timezone (or Eastern if not provided)
     if tz is None:
         tz = pytz.timezone("US/Eastern")
     today = datetime.now(timezone.utc).astimezone(tz).strftime("%Y-%m-%d")
-    region = Region.objects.get(name=region)
+    region = Region.objects.get(code=region_code)
     try:
         # Assumes an already created game is valid
         game = Game.objects.get(date=today, region=region)
     except Game.DoesNotExist:
         # Randomly select a bird
-        bird = random_bird(region)
+        bird = random_bird(region_code)
         imgs = get_bird_images(bird)
 
         # Create game if at least two images
@@ -57,13 +57,23 @@ def todays_game(region="World", tz=None):
             game, _ = Game.objects.update_or_create(date=today, region=region, bird=bird)
         else:
             # Redraw bird if fewer than 2 images
-            return todays_game(region.name, tz)
+            return todays_game(region_code, tz)
     return game
 
 
-def daily_bird(request):
+def daily_bird(request, region_code=None):
+    # Redirect to regional URL if no region code provided
+    if not region_code:
+        region_code = request.session.get("region_code", "world")
+        return redirect("daily_bird_region", region_code=region_code)
+
+    # Validate region code
+    if region_code not in get_regions():
+        raise Http404("Region not found")
+    request.session["region_code"] = region_code
+
     user_tz = get_user_timezone(request)
-    game = todays_game(request.session.get("region", "World"), tz=user_tz)
+    game = todays_game(region_code, tz=user_tz)
 
     # Get user if available
     old_username = request.POST.get("user_id")
@@ -128,17 +138,26 @@ def daily_bird(request):
         return JsonResponse(context)
 
 
-def stats(request):
+def stats(request, region_code=None):
+    # Redirect to regional URL if no region code provided
+    if not region_code:
+        region_code = request.session.get("region_code", "world")
+        return redirect("stats_region", region_code=region_code)
+
+    # Validate region code
+    if region_code not in get_regions():
+        raise Http404("Region not found")
+    request.session["region_code"] = region_code
+
     username = request.session.get("username")
-    region = request.session.get("region", "World")
     user_tz = get_user_timezone(request)
     # Retrieve the user's guess history from the database
     if username:
-        usergames = UserGame.objects.filter(user__username=username, game__region__name=region)
+        usergames = UserGame.objects.filter(user__username=username, game__region__code=region_code)
         today = datetime.now(timezone.utc).astimezone(user_tz).date()
         first_game = min([usergame.game.date for usergame in usergames] + [today])
         games = Game.objects.filter(
-            date__gte=first_game, date__lte=today, region__name=region
+            date__gte=first_game, date__lte=today, region__code=region_code
         ).order_by("date")
 
         # User stats
@@ -316,7 +335,7 @@ def get_bird_images(bird, game=None):
 
 def bird_autocomplete(request):
     # Only show birds in region
-    region = request.session.get("region", "World")
+    region_code = request.session.get("region_code", "world")
 
     query = request.GET.get("term", "")
     q = Q()
@@ -324,7 +343,7 @@ def bird_autocomplete(request):
         q &= Q(name__icontains=term)
 
     # Search for birds with names containing the query
-    birds = Bird.objects.filter(birdregion__region__name=region).filter(q).order_by("name")
+    birds = Bird.objects.filter(birdregion__region__code=region_code).filter(q).order_by("name")
 
     # Return a list of bird names as the autocomplete options
     options = [bird.name for bird in birds]
@@ -348,14 +367,56 @@ def get_regions():
     return region_dict
 
 
+@register.simple_tag(takes_context=True)
+def current_region_code(context):
+    """Get current region code from session."""
+    request = context.get("request")
+    if request:
+        return request.session.get("region_code", "world")
+    return "world"
+
+
+@register.filter
+def region_name(code):
+    """Convert region code to display name."""
+    return get_regions().get(code, "World")
+
+
 def region(request):
-    region = Region.objects.get(code=request.htmx.trigger_name)
-    request.session["region"] = region.name
-    return HttpResponse(request.session["region"], headers={"HX-Refresh": "true"})
+    region_code = request.htmx.trigger_name
+
+    # Validate region code
+    regions = get_regions()
+    if region_code not in regions:
+        raise Http404("Region not found")
+
+    request.session["region_code"] = region_code
+
+    # Preserve the current page path when changing regions
+    current_url = request.headers.get("HX-Current-URL", "")
+    path = urlparse(current_url).path
+
+    # Extract the page suffix (e.g., "stats/") from the current path
+    # Path format: /{region_code}/stats/ or /stats/ or /
+    path_parts = path.strip("/").split("/", 1)
+    if path_parts[0] in regions:
+        # Path has region prefix, get the rest
+        suffix = path_parts[1] if len(path_parts) > 1 else ""
+    else:
+        # Path has no region prefix
+        suffix = path_parts[0] if path_parts[0] else ""
+
+    redirect_path = f"/{region_code}/{suffix}/" if suffix else f"/{region_code}/"
+    redirect_path = redirect_path.replace("//", "/")
+
+    return HttpResponse(
+        regions[region_code],  # Return display name for dropdown
+        headers={"HX-Redirect": redirect_path},
+    )
 
 
 def build_results_emojis(game, guesses):
-    region = game.region.name
+    region = game.region
     answer = game.bird
     date = game.date
     results = []
@@ -365,8 +426,8 @@ def build_results_emojis(game, guesses):
         row = "".join(["🐦" if i else "❌" for i in taxonomy]) + used_hint
         results.append(row)
     emojis = "\n".join(results)
-    link = "https://www.play-birdle.com"
-    return f"{region} Birdle\n{date}\n{emojis}\n{link}"
+    link = f"https://www.play-birdle.com/{region.code}/"
+    return f"{region.name} Birdle\n{date}\n{emojis}\n{link}"
 
 
 def error_404(request, exception):

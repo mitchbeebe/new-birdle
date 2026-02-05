@@ -19,6 +19,7 @@ from django.contrib import admin
 from birdle import views
 
 urlpatterns = [
+    # Default paths (without region in URL)
     path("", views.daily_bird, name="daily_bird"),
     path("stats/", views.stats, name="stats"),
     path("info/", views.info, name="info"),
@@ -31,6 +32,9 @@ urlpatterns = [
     path("api/birds/", views.bird_autocomplete, name="bird_autocomplete"),
     path("region", views.region),
     path("admin/", admin.site.urls),
+    # Regional paths (with region code in URL) - after specific paths
+    path("<str:region_code>/", views.daily_bird, name="daily_bird_region"),
+    path("<str:region_code>/stats/", views.stats, name="stats_region"),
 ]
 
 handler404 = "birdle.views.error_404"

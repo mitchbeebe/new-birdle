@@ -29,9 +29,19 @@ def random_bird(region="World"):
     return bird
 
 
-def todays_game(region="World"):
-    # Get current date in Eastern time
-    tz = pytz.timezone("US/Eastern")
+def get_user_timezone(request):
+    """Get the user's timezone from their browser cookie, defaulting to Eastern."""
+    tz_name = request.COOKIES.get("timezone", "US/Eastern")
+    try:
+        return pytz.timezone(tz_name)
+    except pytz.exceptions.UnknownTimeZoneError:
+        return pytz.timezone("US/Eastern")
+
+
+def todays_game(region="World", tz=None):
+    # Get current date in user's timezone (or Eastern if not provided)
+    if tz is None:
+        tz = pytz.timezone("US/Eastern")
     today = datetime.now(timezone.utc).astimezone(tz).strftime("%Y-%m-%d")
     region = Region.objects.get(name=region)
     try:
@@ -47,12 +57,13 @@ def todays_game(region="World"):
             game, _ = Game.objects.update_or_create(date=today, region=region, bird=bird)
         else:
             # Redraw bird if fewer than 2 images
-            todays_game(region)
+            return todays_game(region.name, tz)
     return game
 
 
 def daily_bird(request):
-    game = todays_game(request.session.get("region", "World"))
+    user_tz = get_user_timezone(request)
+    game = todays_game(request.session.get("region", "World"), tz=user_tz)
 
     # Get user if available
     old_username = request.POST.get("user_id")
@@ -120,10 +131,11 @@ def daily_bird(request):
 def stats(request):
     username = request.session.get("username")
     region = request.session.get("region", "World")
+    user_tz = get_user_timezone(request)
     # Retrieve the user's guess history from the database
     if username:
         usergames = UserGame.objects.filter(user__username=username, game__region__name=region)
-        today = datetime.now(timezone.utc).astimezone(pytz.timezone("US/Eastern")).date()
+        today = datetime.now(timezone.utc).astimezone(user_tz).date()
         first_game = min([usergame.game.date for usergame in usergames] + [today])
         games = Game.objects.filter(
             date__gte=first_game, date__lte=today, region__name=region

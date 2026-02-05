@@ -77,6 +77,14 @@
   {% block content %}
   {% endblock %}
   <script>
+    // Store user's timezone in a cookie for server-side use
+    (function() {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz && document.cookie.indexOf('timezone=' + tz) === -1) {
+        document.cookie = 'timezone=' + tz + ';path=/;max-age=31536000;SameSite=Lax';
+      }
+    })();
+
     document.querySelectorAll(".nav-link").forEach((link) => {
       if (link.href === window.location.href) {
           link.classList.add("active");

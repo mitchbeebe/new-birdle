@@ -35,7 +35,7 @@
       {% current_region_code as nav_region_code %}
       <a class="navbar-brand mx-md-2" href="/{{nav_region_code}}/"><i class="fas fa-dove"></i> Birdle</a>
       <ul class="navbar-nav ms-auto me-2">
-        {% if request.resolver_match.url_name != "info" and request.resolver_match.url_name != "practice" %}
+        {% if request.resolver_match.url_name not in "info,practice,practice-region-family" %}
         <li class="nav-item dropdown">
           <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
             <i class="fas fa-globe-americas"></i>

@@ -3,7 +3,7 @@
 {% endif %}
 {% for bird in birds %}
 <li class="list-group-item list-group-item-action cursor-pointer"
-  onmousedown="event.preventDefault(); document.getElementById('guess-input').value='{{ bird.name }}'; document.getElementById('suggestions').innerHTML='';">
+  onmousedown="event.preventDefault(); document.getElementById('guess-input').value='{{ bird.name|escapejs }}'; document.getElementById('suggestions').innerHTML='';">
   {{ bird.name }}
 </li>
 {% empty %}

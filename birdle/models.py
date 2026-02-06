@@ -64,6 +64,11 @@ class BirdRegion(models.Model):
     def __str__(self):
         return f"{self.region.name}: {self.bird.name}"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["region", "bird"]),
+        ]
+
 
 class Game(models.Model):
     date = models.DateField()

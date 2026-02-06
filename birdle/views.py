@@ -100,6 +100,7 @@ def daily_bird(request, region_code=None):
             "guesses": [{**b.info(), "correctness": b.compare(game.bird)} for b in bird_guesses],
             "guess_count": usergame.guess_count,
             "emojis": build_results_emojis(game, guesses),
+            "hint": get_hint_data(usergame.guess_count, game.bird),
         }
         return render(request, "birdle/daily_bird.html", context)
 
@@ -108,8 +109,9 @@ def daily_bird(request, region_code=None):
         try:
             guess = Bird.objects.get(name=request.POST.get("guess-input"))
         except (KeyError, Bird.DoesNotExist):
-            error_msg = "That bird doesn't exist!"
-            return HttpResponse(error_msg, status=400)
+            response = HttpResponse(status=400)
+            response["HX-Trigger"] = json.dumps({"guessFailed": {}})
+            return response
 
         # Check if they still have guesses and have not won already
         if usergame.guess_count < 6 and not usergame.is_winner:
@@ -127,20 +129,22 @@ def daily_bird(request, region_code=None):
         bird_guesses = [guess.bird for guess in guesses]
 
         correctness = guess.compare(game.bird)
+        guess_count = guesses.count()
+
         context = {
             "is_winner": usergame.is_winner,
             "new_guess": render_to_string(
                 "birdle/guess.html",
                 {**guess.info(), "correctness": correctness},
             ),
-            "guess_count": guesses.count(),
+            "guess_count": guess_count,
             "emojis": build_results_emojis(game, guesses),
-            # Include taxonomy data for autocomplete filtering
             "taxonomy": {
                 "order": guess.order if correctness[0] else None,
                 "family": guess.family if correctness[1] else None,
                 "genus": guess.genus if correctness[2] else None,
             },
+            "hint": get_hint_data(guess_count, game.bird),
         }
         return JsonResponse(context)
 
@@ -344,7 +348,7 @@ def bird_autocomplete(request):
     # Only show birds in region
     region_code = request.session.get("region_code", "world")
 
-    query = request.GET.get("term", "")
+    query = request.GET.get("guess-input", "") or request.GET.get("term", "")
     q = Q()
     for term in query.split(" "):
         q &= Q(name__icontains=term)
@@ -361,13 +365,29 @@ def bird_autocomplete(request):
     if genus_filter:
         q &= Q(genus=genus_filter)
 
+    # Pagination
+    limit = int(request.GET.get("limit", 100))
+    offset = int(request.GET.get("offset", 0))
+
     # Search for birds with names containing the query
     birds = Bird.objects.filter(birdregion__region__code=region_code).filter(q).order_by("name")
+    # Fetch limit+1 to determine if there are more pages
+    birds_page = list(birds[offset : offset + limit + 1])
+    has_more = len(birds_page) > limit
+    birds_page = birds_page[:limit]
 
-    # Return a list of bird names as the autocomplete options
-    options = [bird.name for bird in birds]
+    context = {
+        "birds": birds_page,
+        "has_more": has_more,
+        "offset": offset,
+        "limit": limit,
+        "query": query,
+        "order_filter": order_filter,
+        "family_filter": family_filter,
+        "genus_filter": genus_filter,
+    }
 
-    return JsonResponse(options, safe=False)
+    return render(request, "birdle/bird_suggestions.html", context)
 
 
 @register.simple_tag
@@ -432,6 +452,37 @@ def region(request):
         regions[region_code],  # Return display name for dropdown
         headers={"HX-Redirect": redirect_path},
     )
+
+
+def get_hint_data(guess_count, bird):
+    """Generate hint information based on current guess count and bird."""
+    if guess_count < 3:
+        return {"show": False, "title": "", "message": ""}
+
+    if guess_count == 6:
+        return {
+            "show": True,
+            "title": "Another hint?",
+            "message": "The game's over. Go outside."
+        }
+    elif guess_count == 5:
+        return {
+            "show": True,
+            "title": "One final hint?",
+            "message": f"My name starts with '{bird.name[:3]}'."
+        }
+    elif guess_count == 4:
+        return {
+            "show": True,
+            "title": "Want another hint?",
+            "message": f"My genus is '{bird.genus}'."
+        }
+    else:  # guess_count == 3
+        return {
+            "show": True,
+            "title": "Want a hint?",
+            "message": f"I'm in the {bird.family} family."
+        }
 
 
 def build_results_emojis(game, guesses):

@@ -2,5 +2,5 @@ from django.apps import AppConfig
 
 
 class BirdleConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'birdle'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "birdle"

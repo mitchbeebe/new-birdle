@@ -4,18 +4,17 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('birdle', '0005_guess_usergame_image_photographer_alter_game_date_and_more'),
+        ("birdle", "0005_guess_usergame_image_photographer_alter_game_date_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='guess',
-            name='game',
+            model_name="guess",
+            name="game",
         ),
         migrations.RemoveField(
-            model_name='guess',
-            name='user',
+            model_name="guess",
+            name="user",
         ),
     ]

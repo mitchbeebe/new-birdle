@@ -14,11 +14,6 @@
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
         
         
-        <!-- Include jQuery and jQuery UI -->
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
-        <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script>
-        <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/themes/smoothness/jquery-ui.css">
-
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
         <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.3/dist/sweetalert2.min.css" rel="stylesheet">
@@ -27,7 +22,6 @@
         <script src="https://unpkg.com/htmx.org@1.9.11"></script>
 
         <link rel="stylesheet" href="{% static 'birdle/style.css' %}">
-        <script src="{% static 'birdle/autocomplete.js' %}"></script>
 
         <link rel="shortcut icon" type="image/png" href="{% static 'birdle/favicon.png' %}">
 
@@ -38,12 +32,13 @@
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   <nav class="navbar navbar-expand-sm bg-body-tertiary">
     <div class="container-fluid">
-      <a class="navbar-brand mx-md-2" href="{% url 'daily_bird' %}"><i class="fas fa-dove"></i> Birdle</a>
+      {% current_region_code as nav_region_code %}
+      <a class="navbar-brand mx-md-2" href="/{{nav_region_code}}/"><i class="fas fa-dove"></i> Birdle</a>
       <ul class="navbar-nav ms-auto me-2">
         <li class="nav-item dropdown hidden">
           <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
             <i class="fas fa-globe-americas"></i>
-            <span id="region"> {{request.session.region|default:"World"}}</span>
+            <span id="region"> {{request.session.region_code|default:"world"|region_name}}</span>
           </a>
           <ul class="dropdown-menu dropdown-menu-end dropdown-menu-lg-start position-absolute" aria-labelledby="bd-theme-text" data-bs-popper="static">
             {% get_regions as regions %}
@@ -65,8 +60,8 @@
         </div>
         <div class="offcanvas-body">
           <ul class="navbar-nav ms-auto pe-3">
-            <li class="nav-item"><a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a></li>
-            <li class="nav-item"><a class="nav-link" href="/stats/"><i class="fas fa-chart-bar"></i> Stats</a></li>
+            <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/"><i class="fas fa-home"></i> Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/stats/"><i class="fas fa-chart-bar"></i> Stats</a></li>
             <li class="nav-item"><a class="nav-link" href="/practice/"><i class="fas fa-graduation-cap"></i> Practice</a></li>
             <li class="nav-item"><a class="nav-link" href="/info/"><i class="fas fa-info-circle"></i> Info</a></li>
           </ul>
@@ -77,6 +72,14 @@
   {% block content %}
   {% endblock %}
   <script>
+    // Store user's timezone in a cookie for server-side use
+    (function() {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz && document.cookie.indexOf('timezone=' + tz) === -1) {
+        document.cookie = 'timezone=' + tz + ';path=/;max-age=31536000;SameSite=Lax';
+      }
+    })();
+
     document.querySelectorAll(".nav-link").forEach((link) => {
       if (link.href === window.location.href) {
           link.classList.add("active");

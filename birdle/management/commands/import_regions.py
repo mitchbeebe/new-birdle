@@ -1,14 +1,12 @@
 # import_bird_species.py
 
-import requests
 import json
-from dotenv import load_dotenv
-import os
 from django.core.management.base import BaseCommand
-from birdle.models import Bird, BirdRegion, Region
+from birdle.models import Region
+
 
 class Command(BaseCommand):
-    help = 'Import Regions'
+    help = "Import Regions"
 
     def handle(self, *args, **options):
         with open("birdle/static/birdle/regions.json") as file:

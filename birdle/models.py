@@ -1,7 +1,6 @@
 import random
 from django.db import models
 from django.conf import settings
-from django.contrib.auth.models import User
 
 
 class Bird(models.Model):
@@ -15,31 +14,33 @@ class Bird(models.Model):
 
     def __str__(self):
         return self.name
-    
+
     def __eq__(self, other):
         if not isinstance(other, Bird):
             return False
         return self.scientific_name == other.scientific_name
-    
+
     def compare(self, other):
         if not isinstance(other, Bird):
             return False
-        return [self.order == other.order, 
-                self.family == other.family, 
-                self.genus == other.genus, 
-                self.scientific_name == other.scientific_name]
-    
+        return [
+            self.order == other.order,
+            self.family == other.family,
+            self.genus == other.genus,
+            self.scientific_name == other.scientific_name,
+        ]
+
     def info(self):
-        return {k: v for k,v in vars(self).items() if k != "_state"}
-    
+        return {k: v for k, v in vars(self).items() if k != "_state"}
+
     @classmethod
     def get_random_bird(cls):
         bird_count = cls.objects.count()
         idx = random.randrange(0, bird_count)
         return cls.objects.get(id=idx)
-    
+
     def get_images(self):
-        #TODO
+        # TODO
         pass
 
 
@@ -49,7 +50,7 @@ class Region(models.Model):
 
     def __str__(self):
         return self.name
-    
+
     @classmethod
     def get_default_pk(cls):
         region = cls.objects.get(name="World")
@@ -63,6 +64,11 @@ class BirdRegion(models.Model):
     def __str__(self):
         return f"{self.region.name}: {self.bird.name}"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["region", "bird"]),
+        ]
+
 
 class Game(models.Model):
     date = models.DateField()
@@ -70,11 +76,11 @@ class Game(models.Model):
     region = models.ForeignKey(Region, default=Region.get_default_pk, on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = ('date', 'region')
+        unique_together = ("date", "region")
 
     def __str__(self):
         return f"{self.date}: {self.bird}"
-    
+
     @property
     def img_count(self):
         return Image.objects.filter(bird=self.bird).count()
@@ -86,11 +92,11 @@ class UserGame(models.Model):
 
     def __str__(self):
         return f"{self.game.date}: {self.user}"
-    
+
     @property
     def guess_count(self):
         return Guess.objects.filter(usergame=self).count()
-    
+
     @property
     def is_winner(self):
         guesses = Guess.objects.filter(usergame=self)

@@ -57,31 +57,33 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 
-$(".answer").click(function() {
-    var clickedButton = $(this);
-    var answer = `{{answer.name | safe}}`;
+document.querySelectorAll(".answer").forEach(function(button) {
+    button.addEventListener("click", function() {
+        var clickedButton = this;
+        var answer = `{{answer.name | safe}}`;
 
-    if (clickedButton.val() == answer) {
-        clickedButton.addClass("btn-success");
-        Swal.fire({
-            title: 'Correct!',
-            html: "Learn more about the <a href=\"{{answer.url}}\" target=_blank>{{answer.name}}</a>.",
-            icon: "success",
-            confirmButtonText: "Show me another",
-            showDenyButton: true,
-            denyButtonText: "I'm done"
-          }).then((result) => {
-            if (result.isConfirmed) {
-                document.getElementById("submitButton").click();
-            }
-          });
-    } else {
-        clickedButton.addClass("btn-danger jiggle");
-        setTimeout(function() {
-            clickedButton.removeClass("btn-danger jiggle");
-        }, 500);
-    }
-})
+        if (clickedButton.value == answer) {
+            clickedButton.classList.add("btn-success");
+            Swal.fire({
+                title: 'Correct!',
+                html: "Learn more about the <a href=\"{{answer.url}}\" target=_blank>{{answer.name}}</a>.",
+                icon: "success",
+                confirmButtonText: "Show me another",
+                showDenyButton: true,
+                denyButtonText: "I'm done"
+              }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById("submitButton").click();
+                }
+              });
+        } else {
+            clickedButton.classList.add("btn-danger", "jiggle");
+            setTimeout(function() {
+                clickedButton.classList.remove("btn-danger", "jiggle");
+            }, 500);
+        }
+    });
+});
 </script>
 {% endblock %}
 

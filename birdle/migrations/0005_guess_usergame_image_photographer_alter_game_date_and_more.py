@@ -5,38 +5,54 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('birdle', '0004_stats'),
+        ("birdle", "0004_stats"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='guess',
-            name='usergame',
-            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, to='birdle.usergame'),
+            model_name="guess",
+            name="usergame",
+            field=models.ForeignKey(
+                default=1,
+                on_delete=django.db.models.deletion.CASCADE,
+                to="birdle.usergame",
+            ),
             preserve_default=False,
         ),
         migrations.AddField(
-            model_name='image',
-            name='photographer',
+            model_name="image",
+            name="photographer",
             field=models.CharField(max_length=256, null=True),
         ),
         migrations.AlterField(
-            model_name='game',
-            name='date',
+            model_name="game",
+            name="date",
             field=models.DateField(unique=True),
         ),
         migrations.CreateModel(
-            name='BirdRegion',
+            name="BirdRegion",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('region_name', models.CharField(max_length=100)),
-                ('region_code', models.CharField(max_length=100)),
-                ('bird', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='birdle.bird')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("region_name", models.CharField(max_length=100)),
+                ("region_code", models.CharField(max_length=100)),
+                (
+                    "bird",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, to="birdle.bird"
+                    ),
+                ),
             ],
         ),
         migrations.DeleteModel(
-            name='Stats',
+            name="Stats",
         ),
     ]

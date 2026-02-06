@@ -1,12 +1,13 @@
 # backfill_history.py
 
 import csv
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
-from birdle.models import Bird, Game, User, UserGame, Guess
+from birdle.models import Bird, Game, UserGame, Guess
 
 
 class Command(BaseCommand):
-    help = 'Import historical games, users, usergames, and guesses from Birdle v1'
+    help = "Import historical games, users, usergames, and guesses from Birdle v1"
 
     def handle(self, *args, **options):
         CSV_FUNS = {
@@ -17,11 +18,11 @@ class Command(BaseCommand):
 
         for file, func in CSV_FUNS.items():
             # Open the CSV file and create a CSV reader
-            with open(f'birdle/static/birdle/historical-db/{file}') as csvfile:
+            with open(f"birdle/static/birdle/historical-db/{file}") as csvfile:
                 reader = csv.reader(csvfile)
                 # Skip the header row
                 next(reader)
-                # Loop through each row in the CSV file 
+                # Loop through each row in the CSV file
                 # and update or create the objects
                 for row in reader:
                     func(row)
@@ -31,21 +32,14 @@ class Command(BaseCommand):
 
         bird = Bird.objects.get(name=birdname)
 
-        game, _ = Game.objects.update_or_create(
-            date=date,
-            defaults={'bird': bird}
-        )
-        self.stdout.write(self.style.SUCCESS(f'Created game: {game}'))
-
+        game, _ = Game.objects.update_or_create(date=date, defaults={"bird": bird})
+        self.stdout.write(self.style.SUCCESS(f"Created game: {game}"))
 
     def create_user(self, row):
         user_id = row[0]
 
-        user, _ = User.objects.update_or_create(
-            username=user_id
-        )
-        self.stdout.write(self.style.SUCCESS(f'Created user: {user}'))
-
+        user, _ = User.objects.update_or_create(username=user_id)
+        self.stdout.write(self.style.SUCCESS(f"Created user: {user}"))
 
     def create_usergame_and_guess(self, row):
         date, user_id, birdname = row
@@ -54,12 +48,6 @@ class Command(BaseCommand):
         user = User.objects.get(username=user_id)
         bird = Bird.objects.get(name=birdname)
 
-        usergame, _ = UserGame.objects.update_or_create(
-            user=user,
-            game=game
-        )
-        guess, _ = Guess.objects.update_or_create(
-            usergame=usergame,
-            bird=bird
-        )
-        self.stdout.write(self.style.SUCCESS(f'Created usergame and guess: {guess}'))
+        usergame, _ = UserGame.objects.update_or_create(user=user, game=game)
+        guess, _ = Guess.objects.update_or_create(usergame=usergame, bird=bird)
+        self.stdout.write(self.style.SUCCESS(f"Created usergame and guess: {guess}"))

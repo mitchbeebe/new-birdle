@@ -1,0 +1,24 @@
+{% if offset == 0 %}
+<ul class="list-group position-absolute w-100" style="z-index: 1000; max-height: 300px; overflow-y: auto;">
+{% endif %}
+{% for bird in birds %}
+<li class="list-group-item list-group-item-action cursor-pointer"
+  onmousedown="event.preventDefault(); document.getElementById('guess-input').value='{{ bird.name }}'; document.getElementById('suggestions').innerHTML='';">
+  {{ bird.name }}
+</li>
+{% empty %}
+{% if offset == 0 %}
+<li class="list-group-item text-muted">No birds found</li>
+{% endif %}
+{% endfor %}
+
+{% if has_more %}
+<li class="list-group-item text-center text-muted py-2"
+  hx-get="{% url 'bird_autocomplete' %}?term={{ query }}&offset={{ offset|add:limit }}{% if order_filter %}&order={{ order_filter }}{% endif %}{% if family_filter %}&family={{ family_filter }}{% endif %}{% if genus_filter %}&genus={{ genus_filter }}{% endif %}"
+  hx-trigger="intersect once"
+  hx-swap="outerHTML">
+  Loading more...
+</li>
+{% elif offset == 0 %}
+</ul>
+{% endif %}

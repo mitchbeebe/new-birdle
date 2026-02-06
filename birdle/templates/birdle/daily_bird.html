@@ -12,14 +12,19 @@
     <div class="row justify-content-center mx-auto py-2 position-relative">
       <div class="col-9 col-lg-6 px-1 position-relative" id="autocomplete-container">
         <input type="text" class="form-control text-center" name="guess-input" id="guess-input" placeholder="Guess"
+          tabindex="0"
+          autocomplete="off"
+          aria-label="Enter bird name guess"
+          aria-autocomplete="list"
+          aria-controls="suggestions"
           hx-get="{% url 'bird_autocomplete' %}"
           hx-trigger="focus, input changed delay:300ms"
           hx-target="#suggestions"
           hx-vals="js:{...getTaxonomyFilters()}">
-        <div id="suggestions"></div>
+        <div id="suggestions" role="listbox" aria-label="Bird suggestions"></div>
       </div>
       <div class="col-auto px-0">
-        <button type="submit" class="btn btn-primary">Submit</button>
+        <button type="submit" class="btn btn-primary" tabindex="0" id="submit-button" aria-label="Submit guess">Submit</button>
       </div>
     </div>
   </form>

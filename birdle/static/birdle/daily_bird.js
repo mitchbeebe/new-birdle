@@ -28,13 +28,22 @@ function initializeAutocomplete() {
   const suggestionsList = document.getElementById('suggestions');
   const guessInput = document.getElementById('guess-input');
   const autocompleteContainer = document.getElementById('autocomplete-container');
+  const submitButton = document.getElementById('submit-button');
 
-  // Hide suggestions when input loses focus
-  guessInput.addEventListener('blur', () => {
-    setTimeout(() => {
+  // Hide suggestions when input loses focus, but not when tabbing to submit button
+  guessInput.addEventListener('blur', (e) => {
+    // Check if focus is moving to the submit button
+    if (e.relatedTarget === submitButton) {
+      // Clear suggestions immediately when tabbing to submit
       suggestionsList.innerHTML = '';
       selectedIndex = -1;
-    }, 200);
+    } else {
+      // Otherwise use timeout for mouse clicks on suggestions
+      setTimeout(() => {
+        suggestionsList.innerHTML = '';
+        selectedIndex = -1;
+      }, 200);
+    }
   });
 
   // Reset selection when typing
@@ -45,6 +54,15 @@ function initializeAutocomplete() {
   // Keyboard navigation
   autocompleteContainer.addEventListener('keydown', (e) => {
     const items = suggestionsList.querySelectorAll('.list-group-item-action');
+
+    // Handle Tab key to allow navigation to submit button
+    if (e.key === 'Tab' && items.length > 0) {
+      // Clear suggestions and allow default tab behavior
+      suggestionsList.innerHTML = '';
+      selectedIndex = -1;
+      return; // Allow default tab behavior
+    }
+
     if (items.length === 0) return;
 
     if (e.key === 'ArrowDown') {

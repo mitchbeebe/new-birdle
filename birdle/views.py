@@ -130,7 +130,7 @@ def daily_bird(request, region_code=None):
         # Get the Bird the user guessed
         try:
             guess = Bird.objects.get(name=request.POST.get("guess-input"))
-        except (KeyError, Bird.DoesNotExist):
+        except KeyError, Bird.DoesNotExist:
             response = HttpResponse(status=400)
             response["HX-Trigger"] = json.dumps({"guessFailed": {}})
             return response

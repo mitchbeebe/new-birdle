@@ -129,26 +129,32 @@ function updateHint(clippy, popover, hintData) {
 const pluralize = (count, noun, suffix = 'es') => `${count} ${noun}${count !== 1 ? suffix : ''}`;
 
 function showAlert(guessCount, isWinner, emojis, birdData) {
+  const canShare = typeof navigator.share === 'function';
+
   Swal.mixin({
     title: isWinner ? "Congratulations!" : "Oh no!",
     html: isWinner ?
       `You got today's Birdle in ${pluralize(guessCount, 'guess')}.<br>Learn more about the <a href="${birdData.url}" target=_blank>${birdData.name}</a>.` :
       `Today's bird was the <a href="${birdData.url}" target=_blank>${birdData.name}</a>. But don't fret, <a href='https://birdsarentreal.com/' target=_blank>birds aren't real</a> anyway.`,
     icon: isWinner ? "success" : "error",
-    confirmButtonText: "Copy Results",
+    confirmButtonText: canShare ? "Share Results" : "Copy Results",
     showDenyButton: true,
     denyButtonText: "Close"
   }).fire().then((result) => {
     if (result.isConfirmed) {
-      navigator.clipboard.writeText(emojis);
-      Swal.fire({
-        toast: true,
-        title: 'Copied!',
-        icon: "success",
-        showConfirmButton: false,
-        timer: 2000,
-        timerProgressBar: true
-      });
+      if (canShare) {
+        navigator.share({ text: emojis }).catch(() => {});
+      } else {
+        navigator.clipboard.writeText(emojis);
+        Swal.fire({
+          toast: true,
+          title: 'Copied!',
+          icon: "success",
+          showConfirmButton: false,
+          timer: 2000,
+          timerProgressBar: true
+        });
+      }
     }
   });
 }

@@ -9,7 +9,7 @@ from urllib.parse import quote, unquote, urlparse
 from django.contrib.auth.models import User
 from .models import Bird, Guess, Game, UserGame, Image, BirdRegion, Region
 from .forms import BirdRegionForm
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.template.loader import render_to_string
 from django.template.defaulttags import register
@@ -256,6 +256,7 @@ def stats(request, region_code=None):
         worst = get_worst_accolades(taxonomy_stats)
         species_identified = get_species_identified(taxonomy_stats)
         world_traveler = get_world_traveler_status(username)
+        catch_em_all = get_catch_em_all_progress(taxonomy_stats, region_code)
 
         stats = {
             "games_played": games_played,
@@ -270,6 +271,7 @@ def stats(request, region_code=None):
             "worst": worst,
             "species_identified": species_identified,
             "world_traveler": world_traveler,
+            "catch_em_all": catch_em_all,
         }
     else:
         stats = {
@@ -285,6 +287,7 @@ def stats(request, region_code=None):
             "worst": {},
             "species_identified": {},
             "world_traveler": {"earned": False, "count": 0, "latest": None},
+            "catch_em_all": {"family": [], "genus": []},
         }
     # Render the guess history template with the data
     return render(request, "birdle/stats.html", stats)
@@ -662,6 +665,42 @@ def get_species_identified(taxonomy_stats, limit=5):
         counts.sort(key=lambda item: item[1], reverse=True)
         species_identified[level] = counts[:limit]
     return species_identified
+
+
+CATCH_EM_ALL_TIERS = [(1.0, "Bird"), (0.75, "Chick"), (0.5, "Hatchling")]
+
+
+def get_taxon_species_totals(region_code, level):
+    # Total distinct species per taxon name, among birds available in this region.
+    rows = (
+        Bird.objects.filter(birdregion__region__code=region_code)
+        .values(level)
+        .annotate(total=Count("species_code", distinct=True))
+    )
+    return {row[level]: row["total"] for row in rows}
+
+
+def get_catch_em_all_progress(taxonomy_stats, region_code):
+    progress = {}
+    for level in ("family", "genus"):
+        totals = get_taxon_species_totals(region_code, level)
+        entries = []
+        for name, data in taxonomy_stats[level].items():
+            total = totals.get(name)
+            if not total:
+                continue
+            pct = len(data["species_won"]) / total
+            tier = next(
+                (label for threshold, label in CATCH_EM_ALL_TIERS if pct >= threshold), None
+            )
+            if tier is None:
+                continue
+            entries.append(
+                (pct, {"name": name, "tier": tier, "won": len(data["species_won"]), "total": total})
+            )
+        entries.sort(key=lambda e: (-e[0], e[1]["name"]))
+        progress[level] = [entry for _, entry in entries]
+    return progress
 
 
 def error_404(request, exception):

@@ -16,7 +16,7 @@
         <hr>
         <h3 class="text-center">Accolades</h3>
         <div id="accolades">
-            {% if most_played or best or worst or species_identified or world_traveler.earned %}
+            {% if most_played or best or worst or species_identified or world_traveler.earned or catch_em_all.family or catch_em_all.genus %}
             {% for level, accolade in most_played.items %}
             <div>Most Played {{ level|title }}: {{ accolade.name }} ({{ accolade.count }} games)</div>
             {% endfor %}
@@ -37,6 +37,14 @@
             {% if world_traveler.earned %}
             <div class="mt-2">🌎 <strong>World Traveler</strong>: won every region in a single day ({{ world_traveler.count }} time{{ world_traveler.count|pluralize }}, latest {{ world_traveler.latest }})</div>
             {% endif %}
+            {% for level, taxa in catch_em_all.items %}
+            {% if taxa %}
+            <div class="mt-2"><strong>Catch 'Em All by {{ level|title }}</strong></div>
+            {% for item in taxa %}
+            <div>{{ item.name }}: {{ item.tier }} ({{ item.won }}/{{ item.total }})</div>
+            {% endfor %}
+            {% endif %}
+            {% endfor %}
             {% else %}
             <p class="text-muted">Play a few more games to unlock accolades!</p>
             {% endif %}

@@ -14,11 +14,12 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-from django.urls import path
+from django.urls import include, path
 from django.contrib import admin
 from birdle import views
 
 urlpatterns = [
+    path("accounts/", include("allauth.urls")),
     # Default paths (without region in URL)
     path("", views.daily_bird, name="daily_bird"),
     path("stats/", views.stats, name="stats"),

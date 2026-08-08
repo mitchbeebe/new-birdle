@@ -9,6 +9,7 @@ dependencies = [
     "charset-normalizer==3.3.2",
     "dj-database-url==2.1.0",
     "django==5.0.1",
+    "django-allauth[socialaccount]>=65.0.2",
     "django-htmx==1.17.3",
     "django-on-heroku==1.1.2",
     "django-stubs>=5.0.0",

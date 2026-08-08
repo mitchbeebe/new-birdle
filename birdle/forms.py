@@ -1,8 +1,34 @@
 from typing import cast
 
+from allauth.account.forms import LoginForm, ResetPasswordForm, ResetPasswordKeyForm, SignupForm
 from django import forms
 
 from .models import Bird, BirdRegion, Region
+
+
+class BootstrapFormMixin:
+    """Adds the Bootstrap `form-control` class to every field, matching BirdRegionForm."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in cast(forms.BaseForm, self).fields.values():
+            field.widget.attrs.setdefault("class", "form-control")
+
+
+class StyledLoginForm(BootstrapFormMixin, LoginForm):
+    pass
+
+
+class StyledSignupForm(BootstrapFormMixin, SignupForm):
+    pass
+
+
+class StyledResetPasswordForm(BootstrapFormMixin, ResetPasswordForm):
+    pass
+
+
+class StyledResetPasswordKeyForm(BootstrapFormMixin, ResetPasswordKeyForm):
+    pass
 
 
 class BirdRegionForm(forms.Form):

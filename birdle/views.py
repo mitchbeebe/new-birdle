@@ -4,6 +4,7 @@ import re
 import requests
 import requests.adapters
 from bs4 import BeautifulSoup
+from django.conf import settings
 from django.shortcuts import redirect, render
 from urllib.parse import quote, unquote, urlparse
 from django.contrib.auth.models import User
@@ -78,13 +79,16 @@ def daily_bird(request, region_code=None):
     game = todays_game(region_code, tz=user_tz)
 
     # Get user if available
-    old_username = request.POST.get("user_id")
-    if old_username:
-        username = old_username
+    if request.user.is_authenticated:
+        user = request.user
     else:
-        username = request.session.get("username", int(datetime.now().timestamp() * 100))
-    user, _ = User.objects.get_or_create(username=username)
-    request.session["username"] = user.username
+        old_username = request.POST.get("user_id")
+        if old_username:
+            username = old_username
+        else:
+            username = request.session.get("username", int(datetime.now().timestamp() * 100))
+        user, _ = User.objects.get_or_create(username=username)
+        request.session["username"] = user.username
 
     usergame, _ = UserGame.objects.get_or_create(user=user, game=game)
 
@@ -182,7 +186,9 @@ def stats(request, region_code=None):
         raise Http404("Region not found")
     request.session["region_code"] = region_code
 
-    username = request.session.get("username")
+    username = (
+        request.user.username if request.user.is_authenticated else request.session.get("username")
+    )
     user_tz = get_user_timezone(request)
     # Retrieve the user's guess history from the database
     if username:
@@ -444,6 +450,12 @@ def current_region_code(context):
 def region_name(code):
     """Convert region code to display name."""
     return get_regions().get(code, "World")
+
+
+@register.simple_tag
+def google_login_enabled():
+    """Only show the Google login button once OAuth credentials are configured."""
+    return bool(settings.GOOGLE_OAUTH_CLIENT_ID)
 
 
 def region(request):

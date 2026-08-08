@@ -53,7 +53,7 @@ class Region(models.Model):
 
     @classmethod
     def get_default_pk(cls):
-        region = cls.objects.get(name="World")
+        region, _ = cls.objects.get_or_create(name="World", defaults={"code": "world"})
         return region.pk
 
 

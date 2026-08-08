@@ -1,0 +1,19 @@
+<!-- logout.html -->
+
+{% extends 'birdle/base.html' %}
+
+{% block content %}
+<div class="text-center mx-2 pt-2">
+    <h1 class="h3">Log Out</h1>
+    <p>Are you sure you want to log out?</p>
+</div>
+<form method="post" action="{% url 'account_logout' %}" class="d-flex justify-content-center py-1">
+    {% csrf_token %}
+    {{ redirect_field }}
+    <button type="submit" class="btn btn-primary">Log Out</button>
+</form>
+{% endblock %}
+
+{% block footer %}
+{% include 'birdle/footer.html'%}
+{% endblock %}

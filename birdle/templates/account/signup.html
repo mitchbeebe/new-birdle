@@ -1,0 +1,39 @@
+<!-- signup.html -->
+
+{% extends 'birdle/base.html' %}
+
+{% block content %}
+<div class="text-center mx-2 pt-2">
+    <h1 class="h3">Sign Up</h1>
+    <p>Already have an account? <a href="{{ login_url }}">Log in</a>.</p>
+</div>
+<form method="post" action="{% url 'account_signup' %}" class="justify-content-center py-1">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="col-lg-6 mx-auto p-1">
+        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}
+        <div class="text-danger">{{ error }}</div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {{ redirect_field }}
+    <div class="d-flex justify-content-center py-1">
+        <button type="submit" class="btn btn-primary">Sign Up</button>
+    </div>
+    {% for error in form.non_field_errors %}
+    <div class="text-danger text-center pt-2">{{ error }}</div>
+    {% endfor %}
+</form>
+{% google_login_enabled as show_google_login %}
+{% if show_google_login %}
+<div class="d-flex justify-content-center py-1">
+    <a href="{% url 'google_login' %}" class="btn btn-outline-primary"><i class="fa-brands fa-google"></i> Continue with Google</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block footer %}
+{% include 'birdle/footer.html'%}
+{% endblock %}

@@ -125,3 +125,11 @@ class Image(models.Model):
     label = models.CharField(max_length=100)
     photographer = models.CharField(null=True, max_length=256)
     bird = models.ForeignKey(Bird, on_delete=models.CASCADE)
+
+
+class Profile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    bio = models.TextField(blank=True, default="")
+
+    def __str__(self):
+        return f"{self.user}'s profile"

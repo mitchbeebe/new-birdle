@@ -5,11 +5,12 @@ import requests
 import requests.adapters
 from bs4 import BeautifulSoup
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from urllib.parse import quote, unquote, urlparse
 from django.contrib.auth.models import User
 from .models import Bird, Guess, Game, UserGame, Image, BirdRegion, Region
-from .forms import BirdRegionForm
+from .forms import BirdRegionForm, ProfileForm
 from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.template.loader import render_to_string
@@ -279,6 +280,19 @@ def stats(request, region_code=None):
 
 def info(request):
     return render(request, "birdle/info.html")
+
+
+@login_required
+def profile(request):
+    profile = request.user.profile
+    if request.method == "POST":
+        form = ProfileForm(request.POST, instance=profile, user=request.user)
+        if form.is_valid():
+            form.save()
+            return redirect("profile")
+    else:
+        form = ProfileForm(instance=profile, user=request.user)
+    return render(request, "birdle/profile.html", {"form": form})
 
 
 def practice(request, **kwargs):

@@ -2,8 +2,9 @@ from typing import cast
 
 from allauth.account.forms import LoginForm, ResetPasswordForm, ResetPasswordKeyForm, SignupForm
 from django import forms
+from django.contrib.auth.models import User
 
-from .models import Bird, BirdRegion, Region
+from .models import Bird, BirdRegion, Profile, Region
 
 
 class BootstrapFormMixin:
@@ -67,3 +68,35 @@ class BirdRegionForm(forms.Form):
             raise forms.ValidationError(f"{family} have not been found in the {region} region.")
 
         return cleaned_data
+
+
+class ProfileForm(forms.ModelForm):
+    username = forms.CharField(
+        max_length=150, widget=forms.TextInput(attrs={"class": "form-control"})
+    )
+
+    class Meta:
+        model = Profile
+        fields = ["bio"]
+        widgets = {
+            "bio": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
+        }
+
+    def __init__(self, *args, user, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+        self.fields["username"].initial = user.username
+
+    def clean_username(self):
+        username = self.cleaned_data["username"]
+        if User.objects.exclude(pk=self.user.pk).filter(username=username).exists():
+            raise forms.ValidationError("That username is already taken.")
+        return username
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        self.user.username = self.cleaned_data["username"]
+        if commit:
+            self.user.save()
+            profile.save()
+        return profile

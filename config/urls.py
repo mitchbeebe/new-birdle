@@ -24,6 +24,7 @@ urlpatterns = [
     path("", views.daily_bird, name="daily_bird"),
     path("stats/", views.stats, name="stats"),
     path("info/", views.info, name="info"),
+    path("profile/", views.profile, name="profile"),
     path("practice/", views.practice, name="practice"),
     path(
         "practice/<str:region>/<str:family>",

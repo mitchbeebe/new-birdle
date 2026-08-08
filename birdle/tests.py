@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Bird, Game, Region, UserGame
+from .models import Bird, Game, Profile, Region, UserGame
 
 # Work around a Django 5.0 / Python 3.14 incompatibility: the test client's
 # `store_rendered_templates` does `copy(super())` on the RequestContext used to render a
@@ -68,3 +68,53 @@ class LoginMergeTests(TestCase):
 
         self.assertFalse(User.objects.filter(username="222").exists())
         self.assertEqual(UserGame.objects.filter(user=existing_user, game=self.game).count(), 1)
+
+
+class ProfileSignalTests(TestCase):
+    def test_profile_created_on_user_creation(self):
+        user = User.objects.create_user(username="finch")
+        self.assertTrue(Profile.objects.filter(user=user).exists())
+
+
+class ProfileViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="finch", password="hunter2")
+
+    def test_requires_login(self):
+        response = self.client.get(reverse("profile"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_get_shows_current_username_and_bio(self):
+        profile = Profile.objects.get(user=self.user)
+        profile.bio = "I like birds."
+        profile.save()
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("profile"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "finch")
+        self.assertContains(response, "I like birds.")
+
+    def test_post_updates_username_and_bio(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("profile"), {"username": "sparrow", "bio": "Now a sparrow."}
+        )
+
+        self.assertRedirects(response, reverse("profile"))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, "sparrow")
+        self.assertEqual(Profile.objects.get(user=self.user).bio, "Now a sparrow.")
+
+    def test_post_rejects_duplicate_username(self):
+        User.objects.create_user(username="sparrow")
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse("profile"), {"username": "sparrow", "bio": ""})
+
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, "finch")
+        self.assertContains(response, "already taken")

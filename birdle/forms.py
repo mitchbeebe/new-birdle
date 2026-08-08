@@ -3,6 +3,7 @@ from typing import cast
 from allauth.account.forms import LoginForm, ResetPasswordForm, ResetPasswordKeyForm, SignupForm
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.validators import UnicodeUsernameValidator
 
 from .models import Bird, BirdRegion, Profile, Region
 
@@ -72,7 +73,9 @@ class BirdRegionForm(forms.Form):
 
 class ProfileForm(forms.ModelForm):
     username = forms.CharField(
-        max_length=150, widget=forms.TextInput(attrs={"class": "form-control"})
+        max_length=150,
+        validators=[UnicodeUsernameValidator()],
+        widget=forms.TextInput(attrs={"class": "form-control"}),
     )
 
     class Meta:

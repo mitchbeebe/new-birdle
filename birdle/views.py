@@ -64,6 +64,10 @@ def todays_game(region_code="world", tz=None):
     return game
 
 
+def _stats_cache_key(username, region_code):
+    return f"stats:{username}:{region_code}"
+
+
 def daily_bird(request, region_code=None):
     # Redirect to regional URL if no region code provided
     if not region_code:
@@ -144,6 +148,7 @@ def daily_bird(request, region_code=None):
                 bird=guess,
                 hint_used=request.POST.get("hint_used") == "true",
             )
+            cache.delete(_stats_cache_key(user.username, region_code))
 
         # Get all user guesses
         guesses = Guess.objects.filter(usergame=usergame).order_by("guessed_at")
@@ -185,8 +190,10 @@ def stats(request, region_code=None):
 
     username = request.session.get("username")
     user_tz = get_user_timezone(request)
+    cache_key = _stats_cache_key(username, region_code) if username else None
+    stats = cache.get(cache_key) if cache_key else None
     # Retrieve the user's guess history from the database
-    if username:
+    if username and stats is None:
         usergames = (
             UserGame.objects.filter(user__username=username, game__region__code=region_code)
             .select_related("game__bird")
@@ -281,7 +288,8 @@ def stats(request, region_code=None):
             "world_traveler": world_traveler,
             "catch_em_all": catch_em_all,
         }
-    else:
+        cache.set(cache_key, stats, timeout=60 * 10)
+    elif not username:
         stats = {
             "games_played": 0,
             "games_won": 0,

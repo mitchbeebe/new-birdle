@@ -49,6 +49,18 @@ def get_user_timezone(request):
         return pytz.timezone("US/Eastern")
 
 
+def get_default_region_code(request):
+    """Get the region code to use when none is in the URL: the user's session,
+    then their profile's default region, then "world"."""
+    if "region_code" in request.session:
+        return request.session["region_code"]
+    if request.user.is_authenticated:
+        profile = Profile.objects.filter(user=request.user).first()
+        if profile and profile.default_region and profile.default_region.code in get_regions():
+            return profile.default_region.code
+    return "world"
+
+
 def todays_game(region_code="world", tz=None):
     # Get current date in user's timezone (or Eastern if not provided)
     if tz is None:
@@ -77,7 +89,7 @@ def todays_game(region_code="world", tz=None):
 def daily_bird(request, region_code=None):
     # Redirect to regional URL if no region code provided
     if not region_code:
-        region_code = request.session.get("region_code", "world")
+        region_code = get_default_region_code(request)
         return redirect("daily_bird_region", region_code=region_code)
 
     # Validate region code
@@ -188,7 +200,7 @@ def daily_bird(request, region_code=None):
 def stats(request, region_code=None):
     # Redirect to regional URL if no region code provided
     if not region_code:
-        region_code = request.session.get("region_code", "world")
+        region_code = get_default_region_code(request)
         return redirect("stats_region", region_code=region_code)
 
     # Validate region code

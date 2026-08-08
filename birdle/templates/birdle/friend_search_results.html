@@ -1,0 +1,15 @@
+{% for user in results %}
+<div class="d-flex justify-content-between align-items-center border-bottom py-1" id="search-result-{{ user.id }}">
+  <span>{{ user.username }}</span>
+  <button class="btn btn-sm btn-outline-primary"
+    hx-post="{% url 'send_friend_request' user.username %}"
+    hx-target="#search-result-{{ user.id }}"
+    hx-swap="outerHTML">
+    Add friend
+  </button>
+</div>
+{% empty %}
+{% if query %}
+<div class="text-muted">No users found</div>
+{% endif %}
+{% endfor %}

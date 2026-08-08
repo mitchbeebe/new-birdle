@@ -134,3 +134,26 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"{self.user}'s profile"
+
+
+class Friendship(models.Model):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    STATUS_CHOICES = [(PENDING, "Pending"), (ACCEPTED, "Accepted")]
+
+    from_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="friend_requests_sent", on_delete=models.CASCADE
+    )
+    to_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="friend_requests_received",
+        on_delete=models.CASCADE,
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("from_user", "to_user")
+
+    def __str__(self):
+        return f"{self.from_user} -> {self.to_user} ({self.status})"

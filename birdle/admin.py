@@ -3,7 +3,17 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from django.utils.html import format_html
 from django.urls import reverse
-from birdle.models import Bird, Game, Guess, Image, Profile, UserGame, BirdRegion, Region
+from birdle.models import (
+    Bird,
+    Friendship,
+    Game,
+    Guess,
+    Image,
+    Profile,
+    UserGame,
+    BirdRegion,
+    Region,
+)
 
 
 def linkify(field_name):
@@ -80,3 +90,10 @@ class RegionAdmin(admin.ModelAdmin):
 class ProfileAdmin(admin.ModelAdmin):
     list_display = ["id", "user", "default_region"]
     search_fields = ["user__username"]
+
+
+@admin.register(Friendship)
+class FriendshipAdmin(admin.ModelAdmin):
+    list_display = ["id", "from_user", "to_user", "status", "created_at"]
+    list_filter = ("status",)
+    search_fields = ["from_user__username", "to_user__username"]

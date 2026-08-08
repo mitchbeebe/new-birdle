@@ -9,10 +9,10 @@ from django.contrib import messages
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from urllib.parse import quote, unquote, urlparse
 from django.contrib.auth.models import User
-from .models import Bird, Guess, Game, UserGame, Image, BirdRegion, Profile, Region
+from .models import Bird, Friendship, Guess, Game, UserGame, Image, BirdRegion, Profile, Region
 from .forms import (
     BirdRegionForm,
     DefaultRegionForm,
@@ -614,6 +614,46 @@ def settings_view(request):
 
 
 @login_required
+def friends(request):
+    accepted = Friendship.objects.filter(
+        Q(from_user=request.user) | Q(to_user=request.user), status=Friendship.ACCEPTED
+    )
+    friend_list = [f.to_user if f.from_user == request.user else f.from_user for f in accepted]
+    pending_received = Friendship.objects.filter(to_user=request.user, status=Friendship.PENDING)
+
+    context = {
+        "friends": friend_list,
+        "pending_received": pending_received,
+    }
+    return render(request, "birdle/friends.html", context)
+
+
+@login_required
+def friend_search(request):
+    query = request.GET.get("q", "").strip()
+    results = []
+    if query:
+        related_ids = Friendship.objects.filter(
+            Q(from_user=request.user) | Q(to_user=request.user)
+        ).values_list("from_user_id", "to_user_id")
+        excluded_ids = {request.user.id}
+        for from_id, to_id in related_ids:
+            excluded_ids.add(from_id)
+            excluded_ids.add(to_id)
+
+        results = (
+            User.objects.filter(username__icontains=query)
+            .exclude(password="")
+            .exclude(id__in=excluded_ids)
+            .order_by("username")[:10]
+        )
+
+    return render(
+        request, "birdle/friend_search_results.html", {"results": results, "query": query}
+    )
+
+
+@login_required
 def delete_account(request):
     if request.method == "POST":
         form = DeleteAccountForm(request.POST, user=request.user)
@@ -627,6 +667,34 @@ def delete_account(request):
         form = DeleteAccountForm(user=request.user)
 
     return render(request, "birdle/delete_account.html", {"form": form})
+
+
+@login_required
+def send_friend_request(request, username):
+    if request.method != "POST":
+        raise Http404
+
+    to_user = get_object_or_404(User, username=username)
+    if to_user == request.user:
+        return HttpResponse(status=400)
+
+    Friendship.objects.get_or_create(from_user=request.user, to_user=to_user)
+
+    return render(request, "birdle/friend_request_sent.html")
+
+
+@login_required
+def accept_friend_request(request, request_id):
+    if request.method != "POST":
+        raise Http404
+
+    friend_request = get_object_or_404(
+        Friendship, id=request_id, to_user=request.user, status=Friendship.PENDING
+    )
+    friend_request.status = Friendship.ACCEPTED
+    friend_request.save()
+
+    return redirect("friends")
 
 
 def error_404(request, exception):

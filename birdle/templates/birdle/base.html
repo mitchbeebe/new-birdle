@@ -71,6 +71,9 @@
           <ul class="navbar-nav ms-auto pe-3">
             <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/"><i class="fas fa-home"></i> Home</a></li>
             <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/stats/"><i class="fas fa-chart-column"></i> Stats</a></li>
+            {% if request.user.is_authenticated %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'friends' %}"><i class="fas fa-user-friends"></i> Friends</a></li>
+            {% endif %}
             <li class="nav-item"><a class="nav-link" href="/practice/"><i class="fas fa-graduation-cap"></i> Practice</a></li>
             <li class="nav-item"><a class="nav-link" href="/info/"><i class="fas fa-info-circle"></i> Info</a></li>
             {% if request.user.is_authenticated %}

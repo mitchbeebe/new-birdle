@@ -1,0 +1,44 @@
+{% extends "birdle/base.html" %}
+{% block content %}
+<div class="container mt-4" style="max-width: 500px;">
+  <h2>Friends</h2>
+
+  <div class="mb-4 position-relative">
+    <label for="friend-search" class="form-label">Add a friend</label>
+    <input type="text" id="friend-search" name="q" class="form-control" placeholder="Search by username"
+      autocomplete="off"
+      hx-get="{% url 'friend_search' %}"
+      hx-trigger="keyup changed delay:300ms"
+      hx-target="#friend-search-results">
+    <div id="friend-search-results" class="mt-2"></div>
+  </div>
+
+  {% if pending_received %}
+  <div class="mb-4">
+    <h5>Friend requests</h5>
+    <ul class="list-group">
+      {% for friend_request in pending_received %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ friend_request.from_user.username }}
+        <form method="post" action="{% url 'accept_friend_request' friend_request.id %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-primary">Accept</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div>
+    <h5>Your friends</h5>
+    <ul class="list-group">
+      {% for friend in friends %}
+      <li class="list-group-item">{{ friend.username }}</li>
+      {% empty %}
+      <li class="list-group-item text-muted">No friends yet</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Bird, Game, Profile, Region, UserGame
+from .models import Bird, Friendship, Game, Profile, Region, UserGame
 
 # Work around a Django 5.0 / Python 3.14 incompatibility: the test client's
 # `store_rendered_templates` does `copy(super())` on the RequestContext used to render a
@@ -118,3 +118,76 @@ class ProfileViewTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.username, "finch")
         self.assertContains(response, "already taken")
+
+
+class FriendshipTests(TestCase):
+    def setUp(self):
+        self.alice = User.objects.create_user(username="alice", password="password123")
+        self.bob = User.objects.create_user(username="bob", password="password123")
+        self.anon = User.objects.create(username="1234567890")  # password="" (anonymous)
+
+    def test_search_excludes_self_and_anonymous_accounts(self):
+        self.client.force_login(self.alice)
+        response = self.client.get(reverse("friend_search"), {"q": ""})
+        self.assertEqual(list(response.context["results"]), [])
+
+        response = self.client.get(reverse("friend_search"), {"q": "b"})
+        self.assertEqual(list(response.context["results"]), [self.bob])
+
+        response = self.client.get(reverse("friend_search"), {"q": "1234"})
+        self.assertEqual(list(response.context["results"]), [])
+
+        response = self.client.get(reverse("friend_search"), {"q": "alice"})
+        self.assertEqual(list(response.context["results"]), [])
+
+    def test_send_friend_request_creates_pending_friendship(self):
+        self.client.force_login(self.alice)
+        self.client.post(reverse("send_friend_request", args=[self.bob.username]))
+
+        friendship = Friendship.objects.get(from_user=self.alice, to_user=self.bob)
+        self.assertEqual(friendship.status, Friendship.PENDING)
+
+    def test_send_friend_request_to_self_is_rejected(self):
+        self.client.force_login(self.alice)
+        response = self.client.post(reverse("send_friend_request", args=[self.alice.username]))
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Friendship.objects.exists())
+
+    def test_accept_friend_request_updates_status(self):
+        friendship = Friendship.objects.create(from_user=self.alice, to_user=self.bob)
+
+        self.client.force_login(self.bob)
+        self.client.post(reverse("accept_friend_request", args=[friendship.pk]))
+
+        friendship.refresh_from_db()
+        self.assertEqual(friendship.status, Friendship.ACCEPTED)
+
+    def test_only_addressee_can_accept_friend_request(self):
+        friendship = Friendship.objects.create(from_user=self.alice, to_user=self.bob)
+
+        self.client.force_login(self.alice)
+        response = self.client.post(reverse("accept_friend_request", args=[friendship.pk]))
+
+        self.assertEqual(response.status_code, 404)
+        friendship.refresh_from_db()
+        self.assertEqual(friendship.status, Friendship.PENDING)
+
+    def test_friends_page_lists_accepted_friends_and_pending_requests(self):
+        Friendship.objects.create(
+            from_user=self.alice, to_user=self.bob, status=Friendship.ACCEPTED
+        )
+        Friendship.objects.create(from_user=self.anon, to_user=self.alice)
+
+        self.client.force_login(self.alice)
+        response = self.client.get(reverse("friends"))
+
+        self.assertEqual(response.context["friends"], [self.bob])
+        self.assertEqual(
+            list(response.context["pending_received"]),
+            [Friendship.objects.get(from_user=self.anon, to_user=self.alice)],
+        )
+
+    def test_friends_page_requires_login(self):
+        response = self.client.get(reverse("friends"))
+        self.assertEqual(response.status_code, 302)

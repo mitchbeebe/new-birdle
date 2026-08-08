@@ -254,6 +254,7 @@ def stats(request, region_code=None):
         most_played = get_most_played_accolades(taxonomy_stats)
         best = get_best_accolades(taxonomy_stats)
         worst = get_worst_accolades(taxonomy_stats)
+        species_identified = get_species_identified(taxonomy_stats)
 
         stats = {
             "games_played": games_played,
@@ -266,6 +267,7 @@ def stats(request, region_code=None):
             "most_played": most_played,
             "best": best,
             "worst": worst,
+            "species_identified": species_identified,
         }
     else:
         stats = {
@@ -279,6 +281,7 @@ def stats(request, region_code=None):
             "most_played": {},
             "best": {},
             "worst": {},
+            "species_identified": {},
         }
     # Render the guess history template with the data
     return render(request, "birdle/stats.html", stats)
@@ -555,11 +558,12 @@ def get_taxonomy_stats(usergames):
         bird = usergame.game.bird
         for level, name in (("order", bird.order), ("family", bird.family), ("genus", bird.genus)):
             entry = taxonomy_stats[level].setdefault(
-                name, {"played": 0, "won": 0, "species": set()}
+                name, {"played": 0, "won": 0, "species": set(), "species_won": set()}
             )
             entry["played"] += 1
             if usergame.is_winner:
                 entry["won"] += 1
+                entry["species_won"].add(bird.name)
             entry["species"].add(bird.name)
     return taxonomy_stats
 
@@ -623,6 +627,20 @@ def get_worst_accolades(taxonomy_stats):
             "games_won": eligible[name]["won"],
         }
     return worst
+
+
+def get_species_identified(taxonomy_stats, limit=5):
+    # For each taxonomy level, the top `limit` taxa by count of distinct species won,
+    # sorted descending. No MIN_ACCOLADE_GAMES threshold: a single correctly-identified
+    # species is a countable fact regardless of sample size.
+    species_identified = {}
+    for level, taxa in taxonomy_stats.items():
+        counts = [
+            (name, len(data["species_won"])) for name, data in taxa.items() if data["species_won"]
+        ]
+        counts.sort(key=lambda item: item[1], reverse=True)
+        species_identified[level] = counts[:limit]
+    return species_identified
 
 
 def error_404(request, exception):

@@ -16,7 +16,7 @@
         <hr>
         <h3 class="text-center">Accolades</h3>
         <div id="accolades">
-            {% if most_played or best or worst %}
+            {% if most_played or best or worst or species_identified %}
             {% for level, accolade in most_played.items %}
             <div>Most Played {{ level|title }}: {{ accolade.name }} ({{ accolade.count }} games)</div>
             {% endfor %}
@@ -25,6 +25,14 @@
             {% endfor %}
             {% for level, accolade in worst.items %}
             <div>Worst {{ level|title }}: {{ accolade.name }} ({{ accolade.win_pct }} win rate, {{ accolade.games_won }} games won)</div>
+            {% endfor %}
+            {% for level, taxa in species_identified.items %}
+            {% if taxa %}
+            <div class="mt-2"><strong>Species Identified by {{ level|title }}</strong></div>
+            {% for name, count in taxa %}
+            <div>{{ name }}: {{ count }}</div>
+            {% endfor %}
+            {% endif %}
             {% endfor %}
             {% else %}
             <p class="text-muted">Play a few more games to unlock accolades!</p>

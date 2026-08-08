@@ -255,6 +255,7 @@ def stats(request, region_code=None):
         best = get_best_accolades(taxonomy_stats)
         worst = get_worst_accolades(taxonomy_stats)
         species_identified = get_species_identified(taxonomy_stats)
+        world_traveler = get_world_traveler_status(username)
 
         stats = {
             "games_played": games_played,
@@ -268,6 +269,7 @@ def stats(request, region_code=None):
             "best": best,
             "worst": worst,
             "species_identified": species_identified,
+            "world_traveler": world_traveler,
         }
     else:
         stats = {
@@ -282,6 +284,7 @@ def stats(request, region_code=None):
             "best": {},
             "worst": {},
             "species_identified": {},
+            "world_traveler": {"earned": False, "count": 0, "latest": None},
         }
     # Render the guess history template with the data
     return render(request, "birdle/stats.html", stats)
@@ -627,6 +630,24 @@ def get_worst_accolades(taxonomy_stats):
             "games_won": eligible[name]["won"],
         }
     return worst
+
+
+def get_world_traveler_status(username):
+    # Not region-scoped (see MIT-6): spans every region, so query across all of them.
+    usergames = UserGame.objects.filter(user__username=username).select_related("game__region")
+    wins_by_date = {}
+    for usergame in usergames:
+        if usergame.is_winner:
+            wins_by_date.setdefault(usergame.game.date, set()).add(usergame.game.region.code)
+    all_regions = set(get_regions().keys())
+    achieved_dates = sorted(
+        date for date, regions in wins_by_date.items() if all_regions <= regions
+    )
+    return {
+        "earned": bool(achieved_dates),
+        "count": len(achieved_dates),
+        "latest": achieved_dates[-1] if achieved_dates else None,
+    }
 
 
 def get_species_identified(taxonomy_stats, limit=5):

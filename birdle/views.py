@@ -617,7 +617,11 @@ def get_worst_accolades(taxonomy_stats):
             ),
         )
         win_rate = eligible[name]["won"] / eligible[name]["played"]
-        worst[level] = {"name": name, "win_pct": f"{win_rate:.0%}"}
+        worst[level] = {
+            "name": name,
+            "win_pct": f"{win_rate:.0%}",
+            "games_won": eligible[name]["won"],
+        }
     return worst
 
 

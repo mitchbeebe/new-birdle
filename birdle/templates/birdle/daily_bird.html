@@ -64,11 +64,10 @@
       <strong class="me-auto">Hint</strong>
       <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
     </div>
-    <div class="toast-body" id="hint_msg">
-      {{ hint.message }}
-    </div>
+    <div class="toast-body" id="hint_msg"></div>
   </div>
 </div>
+{{ hint_history|json_script:"hint-history-data" }}
 
 <br>
 <br>

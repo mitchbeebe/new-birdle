@@ -11,6 +11,9 @@ class Bird(models.Model):
     family = models.CharField(max_length=100)
     genus = models.CharField(max_length=100)
     url = models.URLField()
+    hint_vague = models.TextField(blank=True, default="")
+    hint_general = models.TextField(blank=True, default="")
+    hint_specific = models.TextField(blank=True, default="")
 
     def __str__(self):
         return self.name

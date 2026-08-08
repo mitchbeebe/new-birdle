@@ -9,7 +9,8 @@ from urllib.parse import quote, unquote, urlparse
 from django.contrib.auth.models import User
 from .models import Bird, Guess, Game, UserGame, Image, BirdRegion, Region
 from .forms import BirdRegionForm
-from django.db.models import Count, Q
+from django.core.cache import cache
+from django.db.models import Count, Exists, OuterRef, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.template.loader import render_to_string
 from django.template.defaulttags import register
@@ -186,9 +187,16 @@ def stats(request, region_code=None):
     user_tz = get_user_timezone(request)
     # Retrieve the user's guess history from the database
     if username:
-        usergames = UserGame.objects.filter(
-            user__username=username, game__region__code=region_code
-        ).select_related("game__bird")
+        usergames = (
+            UserGame.objects.filter(user__username=username, game__region__code=region_code)
+            .select_related("game__bird")
+            .annotate(
+                num_guesses=Count("guess"),
+                has_won=Exists(
+                    Guess.objects.filter(usergame=OuterRef("pk"), bird=OuterRef("game__bird"))
+                ),
+            )
+        )
         today = datetime.now(timezone.utc).astimezone(user_tz).date()
         first_game = min([usergame.game.date for usergame in usergames] + [today])
         games = Game.objects.filter(
@@ -196,17 +204,17 @@ def stats(request, region_code=None):
         ).order_by("date")
 
         # User stats
-        games_played = len([game for game in usergames if game.guess_count > 0])
-        wins = [game for game in usergames if game.is_winner]
+        games_played = len([game for game in usergames if game.num_guesses > 0])
+        wins = [game for game in usergames if game.has_won]
         games_won = len(wins)
         win_pct = games_won / games_played if games_played > 0 else 0
-        guess_counts = [game.guess_count for game in wins if game.guess_count > 0]
+        guess_counts = [game.num_guesses for game in wins if game.num_guesses > 0]
         guess_dist = [{"guesses": i, "count": guess_counts.count(i)} for i in range(1, 7)]
 
         def result(game):
-            if game.guess_count == 0:
+            if game.num_guesses == 0:
                 result = "Did not play"
-            elif game.is_winner:
+            elif game.has_won:
                 result = "Win"
             else:
                 result = "Loss"
@@ -231,7 +239,7 @@ def stats(request, region_code=None):
         if todays_result:
             history = (
                 history[0:-1]
-                if todays_result[0].guess_count < 6 and not todays_result[0].is_winner
+                if todays_result[0].num_guesses < 6 and not todays_result[0].has_won
                 else history
             )
         else:
@@ -559,7 +567,7 @@ def get_taxonomy_stats(usergames):
         "genus": {},
     }
     for usergame in usergames:
-        if usergame.guess_count == 0:
+        if usergame.num_guesses == 0:
             continue
         bird = usergame.game.bird
         for level, name in (("order", bird.order), ("family", bird.family), ("genus", bird.genus)):
@@ -567,7 +575,7 @@ def get_taxonomy_stats(usergames):
                 name, {"played": 0, "won": 0, "species": set(), "species_won": set()}
             )
             entry["played"] += 1
-            if usergame.is_winner:
+            if usergame.has_won:
                 entry["won"] += 1
                 entry["species_won"].add(bird.name)
             entry["species"].add(bird.name)
@@ -637,10 +645,18 @@ def get_worst_accolades(taxonomy_stats):
 
 def get_world_traveler_status(username):
     # Not region-scoped (see MIT-6): spans every region, so query across all of them.
-    usergames = UserGame.objects.filter(user__username=username).select_related("game__region")
+    usergames = (
+        UserGame.objects.filter(user__username=username)
+        .select_related("game__region")
+        .annotate(
+            has_won=Exists(
+                Guess.objects.filter(usergame=OuterRef("pk"), bird=OuterRef("game__bird"))
+            )
+        )
+    )
     wins_by_date = {}
     for usergame in usergames:
-        if usergame.is_winner:
+        if usergame.has_won:
             wins_by_date.setdefault(usergame.game.date, set()).add(usergame.game.region.code)
     all_regions = set(get_regions().keys())
     achieved_dates = sorted(
@@ -672,12 +688,20 @@ CATCH_EM_ALL_TIERS = [(1.0, "Bird"), (0.75, "Chick"), (0.5, "Hatchling")]
 
 def get_taxon_species_totals(region_code, level):
     # Total distinct species per taxon name, among birds available in this region.
-    rows = (
-        Bird.objects.filter(birdregion__region__code=region_code)
-        .values(level)
-        .annotate(total=Count("species_code", distinct=True))
-    )
-    return {row[level]: row["total"] for row in rows}
+    # Cached: this is static reference data that only changes via management commands
+    # (import_bird_species, update_birdregions). Cache must be cleared manually (or the
+    # TTL shortened) if that data changes and stats should reflect it immediately.
+    cache_key = f"taxon_species_totals:{region_code}:{level}"
+    totals = cache.get(cache_key)
+    if totals is None:
+        rows = (
+            Bird.objects.filter(birdregion__region__code=region_code)
+            .values(level)
+            .annotate(total=Count("species_code", distinct=True))
+        )
+        totals = {row[level]: row["total"] for row in rows}
+        cache.set(cache_key, totals, timeout=60 * 60 * 24)
+    return totals
 
 
 def get_catch_em_all_progress(taxonomy_stats, region_code):

@@ -1,4 +1,5 @@
 import random
+from typing import TYPE_CHECKING
 from django.db import models
 from django.conf import settings
 
@@ -89,6 +90,13 @@ class Game(models.Model):
 class UserGame(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     game = models.ForeignKey(Game, on_delete=models.CASCADE)
+
+    if TYPE_CHECKING:
+        # Annotated dynamically via .annotate() in birdle/views.py for stats queries
+        # (num_guesses/has_won), to avoid the N+1 queries the guess_count/is_winner
+        # properties below would otherwise cause.
+        num_guesses: int
+        has_won: bool
 
     def __str__(self):
         return f"{self.game.date}: {self.user}"

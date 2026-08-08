@@ -16,9 +16,12 @@
         <hr>
         <h3 class="text-center">Accolades</h3>
         <div id="accolades">
-            {% if most_played %}
+            {% if most_played or best %}
             {% for level, accolade in most_played.items %}
             <div>Most Played {{ level|title }}: {{ accolade.name }} ({{ accolade.count }} games)</div>
+            {% endfor %}
+            {% for level, accolade in best.items %}
+            <div>Best {{ level|title }}: {{ accolade.name }} ({{ accolade.win_pct }} win rate)</div>
             {% endfor %}
             {% else %}
             <p class="text-muted">Play a few more games to unlock accolades!</p>

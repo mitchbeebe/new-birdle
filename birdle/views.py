@@ -252,6 +252,7 @@ def stats(request, region_code=None):
 
         taxonomy_stats = get_taxonomy_stats(usergames)
         most_played = get_most_played_accolades(taxonomy_stats)
+        best = get_best_accolades(taxonomy_stats)
 
         stats = {
             "games_played": games_played,
@@ -262,6 +263,7 @@ def stats(request, region_code=None):
             "current_streak": current_streak,
             "best_streak": best_streak,
             "most_played": most_played,
+            "best": best,
         }
     else:
         stats = {
@@ -273,6 +275,7 @@ def stats(request, region_code=None):
             "current_streak": 0,
             "best_streak": 0,
             "most_played": {},
+            "best": {},
         }
     # Render the guess history template with the data
     return render(request, "birdle/stats.html", stats)
@@ -569,6 +572,26 @@ def get_most_played_accolades(taxonomy_stats):
         name = max(eligible, key=lambda name: eligible[name]["played"])
         most_played[level] = {"name": name, "count": eligible[name]["played"]}
     return most_played
+
+
+def get_best_accolades(taxonomy_stats):
+    best = {}
+    for level, taxa in taxonomy_stats.items():
+        eligible = {
+            name: stats for name, stats in taxa.items() if stats["played"] >= MIN_ACCOLADE_GAMES
+        }
+        if not eligible:
+            continue
+        name = max(
+            eligible,
+            key=lambda name: (
+                eligible[name]["won"] / eligible[name]["played"],
+                eligible[name]["played"],
+            ),
+        )
+        win_rate = eligible[name]["won"] / eligible[name]["played"]
+        best[level] = {"name": name, "win_pct": f"{win_rate:.0%}"}
+    return best
 
 
 def error_404(request, exception):

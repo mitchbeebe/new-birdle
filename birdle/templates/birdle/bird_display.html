@@ -5,7 +5,7 @@
     {% for img in imgs %}
       <div class="carousel-item {% if forloop.counter0 == 0 %}active{% endif %}">
         <img src="{{ img.url }}" class="img-fluid d-block bird-img"{% if forloop.counter0 > 0 %} loading="lazy"{% endif %}>
-        <div class="carousel-caption align-bottom">
+        <div class="img-label-wrap">
           <span class="img-label">{{ img.label }}</span>
         </div>
       </div>

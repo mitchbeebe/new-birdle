@@ -75,9 +75,9 @@
 }
 
 /* .carousel { overflow: hidden; padding-bottom: 4rem; } */
-.carousel-caption { 
-    top: auto; 
-    bottom: 0; 
+.img-label-wrap {
+    text-align: center;
+    margin-top: 0.5rem;
 }
 
 .carousel-inner img {

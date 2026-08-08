@@ -7,6 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         ("birdle", "0015_backfill_profiles"),
+        ("birdle", "0016_seed_world_region"),
     ]
 
     operations = [

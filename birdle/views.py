@@ -590,7 +590,11 @@ def get_best_accolades(taxonomy_stats):
             ),
         )
         win_rate = eligible[name]["won"] / eligible[name]["played"]
-        best[level] = {"name": name, "win_pct": f"{win_rate:.0%}"}
+        best[level] = {
+            "name": name,
+            "win_pct": f"{win_rate:.0%}",
+            "games_won": eligible[name]["won"],
+        }
     return best
 
 

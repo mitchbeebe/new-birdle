@@ -21,7 +21,7 @@
             <div>Most Played {{ level|title }}: {{ accolade.name }} ({{ accolade.count }} games)</div>
             {% endfor %}
             {% for level, accolade in best.items %}
-            <div>Best {{ level|title }}: {{ accolade.name }} ({{ accolade.win_pct }} win rate)</div>
+            <div>Best {{ level|title }}: {{ accolade.name }} ({{ accolade.win_pct }} win rate, {{ accolade.games_won }} games won)</div>
             {% endfor %}
             {% else %}
             <p class="text-muted">Play a few more games to unlock accolades!</p>

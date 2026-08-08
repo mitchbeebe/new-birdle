@@ -148,7 +148,11 @@ def daily_bird(request, region_code=None):
                 bird=guess,
                 hint_used=request.POST.get("hint_used") == "true",
             )
-            cache.delete(_stats_cache_key(user.username, region_code))
+            # Invalidate every region's cached stats for this user, not just the
+            # current one: world_traveler is cross-region (see MIT-6), so a win in
+            # one region can change the cached stats of every other region too.
+            for other_region_code in get_regions():
+                cache.delete(_stats_cache_key(user.username, other_region_code))
 
         # Get all user guesses
         guesses = Guess.objects.filter(usergame=usergame).order_by("guessed_at")

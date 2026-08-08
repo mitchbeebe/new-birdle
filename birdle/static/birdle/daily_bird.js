@@ -306,6 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Show initial alert if game is over
   if (isGameOver) {
+    renderHintEntry(config.hint.title, config.hint.message);
     showAlert(config.guessCount, config.isWinner, config.emojis, config.bird);
     disableGameControls(config.isWinner);
   } else {

@@ -1,0 +1,26 @@
+<!-- delete_account.html -->
+
+{% extends 'birdle/base.html' %}
+
+{% block content %}
+<div class="col-10 col-lg-6 mx-auto">
+    <h2 class="pt-3">Delete Account</h2>
+    <p>This will permanently delete your account and all of your game history. Enter your password to confirm.</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="p-1">
+            {{ form.password }}
+            {% for error in form.password.errors %}
+            <div class="text-danger">{{ error }}</div>
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-danger">Permanently Delete Account</button>
+        <a href="{% url 'settings' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+<br>
+{% endblock %}
+
+{% block footer %}
+{% include 'birdle/footer.html'%}
+{% endblock %}

@@ -5,12 +5,21 @@ import requests
 import requests.adapters
 from bs4 import BeautifulSoup
 from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import redirect, render
 from urllib.parse import quote, unquote, urlparse
 from django.contrib.auth.models import User
-from .models import Bird, Guess, Game, UserGame, Image, BirdRegion, Region
-from .forms import BirdRegionForm, ProfileForm
+from .models import Bird, Guess, Game, UserGame, Image, BirdRegion, Profile, Region
+from .forms import (
+    BirdRegionForm,
+    DefaultRegionForm,
+    DeleteAccountForm,
+    EmailChangeForm,
+    ProfileForm,
+)
 from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.template.loader import render_to_string
@@ -549,6 +558,63 @@ def build_results_emojis(game, guesses):
     emojis = "\n".join(results)
     link = f"https://www.play-birdle.com/{region.code}/"
     return f"{region.name} Birdle\n{date}\n{emojis}\n{link}"
+
+
+@login_required
+def settings_view(request):
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+
+    email_form = EmailChangeForm(user=request.user, initial={"email": request.user.email})
+    password_form = PasswordChangeForm(user=request.user)
+    region_form = DefaultRegionForm(instance=profile)
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "email":
+            email_form = EmailChangeForm(request.POST, user=request.user)
+            if email_form.is_valid():
+                email_form.save()
+                messages.success(request, "Email updated.")
+                return redirect("settings")
+        elif action == "password":
+            password_form = PasswordChangeForm(user=request.user, data=request.POST)
+            if password_form.is_valid():
+                user = password_form.save()
+                update_session_auth_hash(request, user)
+                messages.success(request, "Password updated.")
+                return redirect("settings")
+        elif action == "region":
+            region_form = DefaultRegionForm(request.POST, instance=profile)
+            if region_form.is_valid():
+                region_form.save()
+                messages.success(request, "Default region updated.")
+                return redirect("settings")
+
+    return render(
+        request,
+        "birdle/settings.html",
+        {
+            "email_form": email_form,
+            "password_form": password_form,
+            "region_form": region_form,
+        },
+    )
+
+
+@login_required
+def delete_account(request):
+    if request.method == "POST":
+        form = DeleteAccountForm(request.POST, user=request.user)
+        if form.is_valid():
+            user = request.user
+            logout(request)
+            user.delete()
+            messages.success(request, "Your account has been deleted.")
+            return redirect("daily_bird")
+    else:
+        form = DeleteAccountForm(user=request.user)
+
+    return render(request, "birdle/delete_account.html", {"form": form})
 
 
 def error_404(request, exception):

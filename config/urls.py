@@ -33,6 +33,8 @@ urlpatterns = [
     ),
     path("api/birds/", views.bird_autocomplete, name="bird_autocomplete"),
     path("region", views.region),
+    path("settings/", views.settings_view, name="settings"),
+    path("settings/delete/", views.delete_account, name="delete_account"),
     path("admin/", admin.site.urls),
     # Regional paths (with region code in URL) - after specific paths
     path("<str:region_code>/", views.daily_bird, name="daily_bird_region"),

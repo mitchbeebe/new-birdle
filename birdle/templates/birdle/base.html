@@ -75,6 +75,7 @@
             <li class="nav-item"><a class="nav-link" href="/info/"><i class="fas fa-info-circle"></i> Info</a></li>
             {% if request.user.is_authenticated %}
             <li class="nav-item"><a class="nav-link" href="{% url 'profile' %}"><i class="fas fa-user"></i> {{ request.user.username }}</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'settings' %}"><i class="fas fa-gear"></i> Settings</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'account_logout' %}"><i class="fas fa-right-from-bracket"></i> Log out</a></li>
             {% else %}
             <li class="nav-item"><a class="nav-link" href="{% url 'account_login' %}"><i class="fas fa-right-to-bracket"></i> Log in</a></li>

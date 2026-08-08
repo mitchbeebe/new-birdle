@@ -1,0 +1,76 @@
+<!-- settings.html -->
+
+{% extends 'birdle/base.html' %}
+
+{% block content %}
+<div class="col-10 col-lg-6 mx-auto">
+    <h2 class="pt-3">Settings</h2>
+
+    {% for message in messages %}
+    <div class="alert alert-success" role="alert">{{ message }}</div>
+    {% endfor %}
+
+    <h5 class="pt-3">Default Region</h5>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="region">
+        <div class="p-1">
+            {{ region_form.default_region }}
+            {% for error in region_form.default_region.errors %}
+            <div class="text-danger">{{ error }}</div>
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-primary">Save Region</button>
+    </form>
+
+    <h5 class="pt-4">Email</h5>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="email">
+        <div class="p-1">
+            {{ email_form.email }}
+            {% for error in email_form.email.errors %}
+            <div class="text-danger">{{ error }}</div>
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-primary">Update Email</button>
+    </form>
+
+    <h5 class="pt-4">Password</h5>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="password">
+        <div class="p-1">
+            {{ password_form.old_password.label_tag }}
+            {{ password_form.old_password }}
+            {% for error in password_form.old_password.errors %}
+            <div class="text-danger">{{ error }}</div>
+            {% endfor %}
+        </div>
+        <div class="p-1">
+            {{ password_form.new_password1.label_tag }}
+            {{ password_form.new_password1 }}
+            {% for error in password_form.new_password1.errors %}
+            <div class="text-danger">{{ error }}</div>
+            {% endfor %}
+        </div>
+        <div class="p-1">
+            {{ password_form.new_password2.label_tag }}
+            {{ password_form.new_password2 }}
+            {% for error in password_form.new_password2.errors %}
+            <div class="text-danger">{{ error }}</div>
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-primary">Update Password</button>
+    </form>
+
+    <h5 class="pt-4">Delete Account</h5>
+    <p>This will permanently delete your account and all of your game history.</p>
+    <a href="{% url 'delete_account' %}" class="btn btn-danger">Delete Account</a>
+</div>
+<br>
+{% endblock %}
+
+{% block footer %}
+{% include 'birdle/footer.html'%}
+{% endblock %}

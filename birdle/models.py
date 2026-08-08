@@ -130,6 +130,7 @@ class Image(models.Model):
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     bio = models.TextField(blank=True, default="")
+    default_region = models.ForeignKey(Region, null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return f"{self.user}'s profile"

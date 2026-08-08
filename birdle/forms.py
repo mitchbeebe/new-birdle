@@ -2,6 +2,7 @@ from typing import cast
 
 from allauth.account.forms import LoginForm, ResetPasswordForm, ResetPasswordKeyForm, SignupForm
 from django import forms
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 from django.contrib.auth.validators import UnicodeUsernameValidator
 
@@ -103,3 +104,56 @@ class ProfileForm(forms.ModelForm):
             self.user.save()
             profile.save()
         return profile
+
+
+class EmailChangeForm(forms.Form):
+    email = forms.EmailField(widget=forms.EmailInput(attrs={"class": "form-control"}))
+
+    def __init__(self, *args, user, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_email(self):
+        email = self.cleaned_data["email"]
+        if get_user_model().objects.exclude(pk=self.user.pk).filter(email=email).exists():
+            raise forms.ValidationError("That email is already in use.")
+        return email
+
+    def save(self):
+        self.user.email = self.cleaned_data["email"]
+        self.user.save(update_fields=["email"])
+        return self.user
+
+
+class DefaultRegionForm(forms.ModelForm):
+    default_region = forms.ModelChoiceField(
+        queryset=Region.objects.none(),
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
+    class Meta:
+        model = Profile
+        fields = ["default_region"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Import here to avoid a circular import with views.py.
+        from .views import get_regions
+
+        region_field = cast(forms.ModelChoiceField, self.fields["default_region"])
+        region_field.queryset = Region.objects.filter(code__in=get_regions()).order_by("name")
+
+
+class DeleteAccountForm(forms.Form):
+    password = forms.CharField(widget=forms.PasswordInput(attrs={"class": "form-control"}))
+
+    def __init__(self, *args, user, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_password(self):
+        password = self.cleaned_data["password"]
+        if not self.user.check_password(password):
+            raise forms.ValidationError("Incorrect password.")
+        return password

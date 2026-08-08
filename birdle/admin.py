@@ -78,5 +78,5 @@ class RegionAdmin(admin.ModelAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ["id", "user"]
+    list_display = ["id", "user", "default_region"]
     search_fields = ["user__username"]

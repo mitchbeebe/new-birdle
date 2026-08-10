@@ -129,7 +129,9 @@ function updateHint(clippy, popover, hintData) {
 const pluralize = (count, noun, suffix = 'es') => `${count} ${noun}${count !== 1 ? suffix : ''}`;
 
 function showAlert(guessCount, isWinner, emojis, birdData) {
-  const canShare = typeof navigator.share === 'function';
+  // Native share sheet on mobile, clipboard copy on desktop.
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const canShare = isMobile && typeof navigator.share === 'function';
 
   Swal.mixin({
     title: isWinner ? "Congratulations!" : "Oh no!",

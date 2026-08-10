@@ -14,6 +14,17 @@
         <div>Best Streak: {{ best_streak }}</div>
         <div>Current Streak: {{ current_streak }}</div>
         <hr>
+        <h3 class="text-center">Accolades</h3>
+        <div id="accolades">
+            {% if most_played %}
+            {% for level, accolade in most_played.items %}
+            <div>Most Played {{ level|title }}: {{ accolade.name }} ({{ accolade.count }} games)</div>
+            {% endfor %}
+            {% else %}
+            <p class="text-muted">Play a few more games to unlock accolades!</p>
+            {% endif %}
+        </div>
+        <hr>
         <h3 class="text-center">Guess Distribution</h3>
         <div class="d-flex justify-content-center" id="guess_dist"></div>
         <hr>

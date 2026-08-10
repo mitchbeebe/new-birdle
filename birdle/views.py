@@ -186,7 +186,9 @@ def stats(request, region_code=None):
     user_tz = get_user_timezone(request)
     # Retrieve the user's guess history from the database
     if username:
-        usergames = UserGame.objects.filter(user__username=username, game__region__code=region_code)
+        usergames = UserGame.objects.filter(
+            user__username=username, game__region__code=region_code
+        ).select_related("game__bird")
         today = datetime.now(timezone.utc).astimezone(user_tz).date()
         first_game = min([usergame.game.date for usergame in usergames] + [today])
         games = Game.objects.filter(
@@ -248,6 +250,9 @@ def stats(request, region_code=None):
         current_streak = streaks[-1]
         best_streak = max(streaks)
 
+        taxonomy_stats = get_taxonomy_stats(usergames)
+        most_played = get_most_played_accolades(taxonomy_stats)
+
         stats = {
             "games_played": games_played,
             "games_won": games_won,
@@ -256,6 +261,7 @@ def stats(request, region_code=None):
             "history": json.dumps(history),
             "current_streak": current_streak,
             "best_streak": best_streak,
+            "most_played": most_played,
         }
     else:
         stats = {
@@ -266,6 +272,7 @@ def stats(request, region_code=None):
             "history": json.dumps([]),
             "current_streak": 0,
             "best_streak": 0,
+            "most_played": {},
         }
     # Render the guess history template with the data
     return render(request, "birdle/stats.html", stats)
@@ -523,6 +530,45 @@ def build_results_emojis(game, guesses):
     emojis = "\n".join(results)
     link = f"https://www.play-birdle.com/{region.code}/"
     return f"{region.name} Birdle\n{date}\n{emojis}\n{link}"
+
+
+MIN_ACCOLADE_GAMES = 2
+
+
+def get_taxonomy_stats(usergames):
+    # Single pass over usergames so MIT-15 (best), MIT-16 (worst), and MIT-17 (species count)
+    # can all reuse `won`/`species` from the same data instead of re-querying.
+    taxonomy_stats = {
+        "order": {},
+        "family": {},
+        "genus": {},
+    }
+    for usergame in usergames:
+        if usergame.guess_count == 0:
+            continue
+        bird = usergame.game.bird
+        for level, name in (("order", bird.order), ("family", bird.family), ("genus", bird.genus)):
+            entry = taxonomy_stats[level].setdefault(
+                name, {"played": 0, "won": 0, "species": set()}
+            )
+            entry["played"] += 1
+            if usergame.is_winner:
+                entry["won"] += 1
+            entry["species"].add(bird.name)
+    return taxonomy_stats
+
+
+def get_most_played_accolades(taxonomy_stats):
+    most_played = {}
+    for level, taxa in taxonomy_stats.items():
+        eligible = {
+            name: stats for name, stats in taxa.items() if stats["played"] >= MIN_ACCOLADE_GAMES
+        }
+        if not eligible:
+            continue
+        name = max(eligible, key=lambda name: eligible[name]["played"])
+        most_played[level] = {"name": name, "count": eligible[name]["played"]}
+    return most_played
 
 
 def error_404(request, exception):

@@ -139,22 +139,27 @@ function showAlert(guessCount, isWinner, emojis, birdData) {
     icon: isWinner ? "success" : "error",
     confirmButtonText: canShare ? "Share Results" : "Copy Results",
     showDenyButton: true,
-    denyButtonText: "Close"
-  }).fire().then((result) => {
-    if (result.isConfirmed) {
+    denyButtonText: "Close",
+    // Sharing must happen synchronously within the button click, before Swal
+    // starts its close animation, or browsers drop the user-activation
+    // required by navigator.share().
+    preConfirm: () => {
       if (canShare) {
         navigator.share({ text: emojis }).catch(() => {});
       } else {
         navigator.clipboard.writeText(emojis);
-        Swal.fire({
-          toast: true,
-          title: 'Copied!',
-          icon: "success",
-          showConfirmButton: false,
-          timer: 2000,
-          timerProgressBar: true
-        });
       }
+    }
+  }).fire().then((result) => {
+    if (result.isConfirmed && !canShare) {
+      Swal.fire({
+        toast: true,
+        title: 'Copied!',
+        icon: "success",
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true
+      });
     }
   });
 }

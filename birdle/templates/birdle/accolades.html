@@ -76,14 +76,13 @@
     {% if species_identified.order or species_identified.family or species_identified.genus %}
     <hr>
     <h5><i class="fas fa-binoculars"></i> Species Identified</h5>
-    {% for level, taxa in species_identified.items %}
-    {% if taxa %}
     <div class="table-responsive">
         <table class="table table-sm">
             <thead>
                 <tr><th>Level</th><th>Taxon</th><th>Species Count</th></tr>
             </thead>
             <tbody>
+                {% for level, taxa in species_identified.items %}
                 {% for name, count in taxa %}
                 <tr>
                     <td>{{ level|title }}</td>
@@ -91,11 +90,10 @@
                     <td>{{ count }}</td>
                 </tr>
                 {% endfor %}
+                {% endfor %}
             </tbody>
         </table>
     </div>
-    {% endif %}
-    {% endfor %}
     {% endif %}
 
     {% if world_traveler.earned %}
@@ -111,14 +109,13 @@
     {% if catch_em_all.family or catch_em_all.genus %}
     <hr>
     <h5><i class="fas fa-trophy"></i> Catch 'Em All</h5>
-    {% for level, taxa in catch_em_all.items %}
-    {% if taxa %}
     <div class="table-responsive">
         <table class="table table-sm align-middle">
             <thead>
                 <tr><th>Level</th><th>Taxon</th><th>Tier</th><th>Progress</th></tr>
             </thead>
             <tbody>
+                {% for level, taxa in catch_em_all.items %}
                 {% for item in taxa %}
                 <tr>
                     <td>{{ level|title }}</td>
@@ -133,11 +130,10 @@
                     </td>
                 </tr>
                 {% endfor %}
+                {% endfor %}
             </tbody>
         </table>
     </div>
-    {% endif %}
-    {% endfor %}
     {% endif %}
 
     {% else %}

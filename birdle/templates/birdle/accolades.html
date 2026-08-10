@@ -1,0 +1,148 @@
+<!-- accolades.html -->
+
+{% extends 'birdle/base.html' %}
+
+{% block content %}
+<div class="container pt-2">
+    <h3 class="text-center">Accolades ({{request.session.region_code|default:"world"|region_name}})</h3>
+
+    {% if most_played or best or worst or species_identified or world_traveler.earned or catch_em_all.family or catch_em_all.genus %}
+
+    {% if most_played %}
+    <hr>
+    <h5><i class="fas fa-chart-simple"></i> Most Played</h5>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr><th>Level</th><th>Taxon</th><th>Games</th></tr>
+            </thead>
+            <tbody>
+                {% for level, accolade in most_played.items %}
+                <tr>
+                    <td>{{ level|title }}</td>
+                    <td>{{ accolade.name }}</td>
+                    <td>{{ accolade.count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if best %}
+    <hr>
+    <h5><i class="fas fa-medal"></i> Best</h5>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr><th>Level</th><th>Taxon</th><th>Win Rate</th><th>Games Won</th></tr>
+            </thead>
+            <tbody>
+                {% for level, accolade in best.items %}
+                <tr>
+                    <td>{{ level|title }}</td>
+                    <td>{{ accolade.name }}</td>
+                    <td>{{ accolade.win_pct }}</td>
+                    <td>{{ accolade.games_won }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if worst %}
+    <hr>
+    <h5><i class="fas fa-face-frown"></i> Worst</h5>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr><th>Level</th><th>Taxon</th><th>Win Rate</th><th>Games Won</th></tr>
+            </thead>
+            <tbody>
+                {% for level, accolade in worst.items %}
+                <tr>
+                    <td>{{ level|title }}</td>
+                    <td>{{ accolade.name }}</td>
+                    <td>{{ accolade.win_pct }}</td>
+                    <td>{{ accolade.games_won }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if species_identified.order or species_identified.family or species_identified.genus %}
+    <hr>
+    <h5><i class="fas fa-binoculars"></i> Species Identified</h5>
+    {% for level, taxa in species_identified.items %}
+    {% if taxa %}
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr><th>Level</th><th>Taxon</th><th>Species Count</th></tr>
+            </thead>
+            <tbody>
+                {% for name, count in taxa %}
+                <tr>
+                    <td>{{ level|title }}</td>
+                    <td>{{ name }}</td>
+                    <td>{{ count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+
+    {% if world_traveler.earned %}
+    <hr>
+    <h5><i class="fas fa-earth-americas"></i> World Traveler</h5>
+    <div class="card">
+        <div class="card-body">
+            Won every region in a single day: {{ world_traveler.count }} time{{ world_traveler.count|pluralize }}, latest {{ world_traveler.latest }}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if catch_em_all.family or catch_em_all.genus %}
+    <hr>
+    <h5><i class="fas fa-trophy"></i> Catch 'Em All</h5>
+    {% for level, taxa in catch_em_all.items %}
+    {% if taxa %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr><th>Level</th><th>Taxon</th><th>Tier</th><th>Progress</th></tr>
+            </thead>
+            <tbody>
+                {% for item in taxa %}
+                <tr>
+                    <td>{{ level|title }}</td>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.tier }}</td>
+                    <td style="min-width: 150px;">
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" style="width: {{ item.won|percentage:item.total }}%;" aria-valuenow="{{ item.won|percentage:item.total }}" aria-valuemin="0" aria-valuemax="100">
+                                {{ item.won }}/{{ item.total }}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+
+    {% else %}
+    <p class="text-muted text-center">Play a few more games to unlock accolades!</p>
+    {% endif %}
+</div>
+
+{% endblock %}

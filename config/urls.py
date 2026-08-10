@@ -22,6 +22,7 @@ urlpatterns = [
     # Default paths (without region in URL)
     path("", views.daily_bird, name="daily_bird"),
     path("stats/", views.stats, name="stats"),
+    path("accolades/", views.accolades, name="accolades"),
     path("info/", views.info, name="info"),
     path("practice/", views.practice, name="practice"),
     path(
@@ -35,6 +36,7 @@ urlpatterns = [
     # Regional paths (with region code in URL) - after specific paths
     path("<str:region_code>/", views.daily_bird, name="daily_bird_region"),
     path("<str:region_code>/stats/", views.stats, name="stats_region"),
+    path("<str:region_code>/accolades/", views.accolades, name="accolades_region"),
 ]
 
 handler404 = "birdle.views.error_404"

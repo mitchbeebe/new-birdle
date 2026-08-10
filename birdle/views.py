@@ -181,17 +181,7 @@ def daily_bird(request, region_code=None):
         return JsonResponse(context)
 
 
-def stats(request, region_code=None):
-    # Redirect to regional URL if no region code provided
-    if not region_code:
-        region_code = request.session.get("region_code", "world")
-        return redirect("stats_region", region_code=region_code)
-
-    # Validate region code
-    if region_code not in get_regions():
-        raise Http404("Region not found")
-    request.session["region_code"] = region_code
-
+def _get_stats(request, region_code):
     username = request.session.get("username")
     user_tz = get_user_timezone(request)
     cache_key = _stats_cache_key(username, region_code) if username else None
@@ -309,8 +299,47 @@ def stats(request, region_code=None):
             "world_traveler": {"earned": False, "count": 0, "latest": None},
             "catch_em_all": {"family": [], "genus": []},
         }
-    # Render the guess history template with the data
-    return render(request, "birdle/stats.html", stats)
+    return stats
+
+
+def stats(request, region_code=None):
+    # Redirect to regional URL if no region code provided
+    if not region_code:
+        region_code = request.session.get("region_code", "world")
+        return redirect("stats_region", region_code=region_code)
+
+    # Validate region code
+    if region_code not in get_regions():
+        raise Http404("Region not found")
+    request.session["region_code"] = region_code
+
+    return render(request, "birdle/stats.html", _get_stats(request, region_code))
+
+
+def accolades(request, region_code=None):
+    # Redirect to regional URL if no region code provided
+    if not region_code:
+        region_code = request.session.get("region_code", "world")
+        return redirect("accolades_region", region_code=region_code)
+
+    # Validate region code
+    if region_code not in get_regions():
+        raise Http404("Region not found")
+    request.session["region_code"] = region_code
+
+    accolade_stats = _get_stats(request, region_code)
+    context = {
+        key: accolade_stats[key]
+        for key in (
+            "most_played",
+            "best",
+            "worst",
+            "species_identified",
+            "world_traveler",
+            "catch_em_all",
+        )
+    }
+    return render(request, "birdle/accolades.html", context)
 
 
 def info(request):
@@ -486,6 +515,12 @@ def current_region_code(context):
 def region_name(code):
     """Convert region code to display name."""
     return get_regions().get(code, "World")
+
+
+@register.filter
+def percentage(won, total):
+    """Compute won/total as a whole-number percentage, for progress bar widths."""
+    return round(won / total * 100) if total else 0
 
 
 def region(request):

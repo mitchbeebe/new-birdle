@@ -263,7 +263,7 @@ def _get_stats(request, region_code):
         most_played = get_most_played_accolades(taxonomy_stats)
         best = get_best_accolades(taxonomy_stats)
         worst = get_worst_accolades(taxonomy_stats)
-        species_identified = get_species_identified(taxonomy_stats)
+        species_identified = get_species_identified(taxonomy_stats, region_code)
         world_traveler = get_world_traveler_status(username)
         catch_em_all = get_catch_em_all_progress(taxonomy_stats, region_code)
 
@@ -295,9 +295,9 @@ def _get_stats(request, region_code):
             "most_played": {},
             "best": {},
             "worst": {},
-            "species_identified": {},
+            "species_identified": [],
             "world_traveler": {"earned": False, "count": 0, "latest": None},
-            "catch_em_all": {"family": [], "genus": []},
+            "catch_em_all": [],
         }
     return stats
 
@@ -608,86 +608,78 @@ MIN_ACCOLADE_GAMES = 2
 def get_taxonomy_stats(usergames):
     # Single pass over usergames so MIT-15 (best), MIT-16 (worst), and MIT-17 (species count)
     # can all reuse `won`/`species` from the same data instead of re-querying.
-    taxonomy_stats = {
-        "order": {},
-        "family": {},
-        "genus": {},
-    }
+    taxonomy_stats = {}
     for usergame in usergames:
         if usergame.num_guesses == 0:
             continue
         bird = usergame.game.bird
-        for level, name in (("order", bird.order), ("family", bird.family), ("genus", bird.genus)):
-            entry = taxonomy_stats[level].setdefault(
-                name, {"played": 0, "won": 0, "species": set(), "species_won": set()}
-            )
-            entry["played"] += 1
-            if usergame.has_won:
-                entry["won"] += 1
-                entry["species_won"].add(bird.name)
-            entry["species"].add(bird.name)
+        entry = taxonomy_stats.setdefault(
+            bird.family, {"played": 0, "won": 0, "species": set(), "species_won": set()}
+        )
+        entry["played"] += 1
+        if usergame.has_won:
+            entry["won"] += 1
+            entry["species_won"].add(bird.name)
+        entry["species"].add(bird.name)
     return taxonomy_stats
 
 
 def get_most_played_accolades(taxonomy_stats):
-    most_played = {}
-    for level, taxa in taxonomy_stats.items():
-        eligible = {
-            name: stats for name, stats in taxa.items() if stats["played"] >= MIN_ACCOLADE_GAMES
-        }
-        if not eligible:
-            continue
-        name = max(eligible, key=lambda name: eligible[name]["played"])
-        most_played[level] = {"name": name, "count": eligible[name]["played"]}
-    return most_played
+    eligible = {
+        name: stats
+        for name, stats in taxonomy_stats.items()
+        if stats["played"] >= MIN_ACCOLADE_GAMES
+    }
+    if not eligible:
+        return {}
+    name = max(eligible, key=lambda name: eligible[name]["played"])
+    return {"name": name, "count": eligible[name]["played"]}
 
 
 def get_best_accolades(taxonomy_stats):
-    best = {}
-    for level, taxa in taxonomy_stats.items():
-        eligible = {
-            name: stats for name, stats in taxa.items() if stats["played"] >= MIN_ACCOLADE_GAMES
-        }
-        if not eligible:
-            continue
-        name = max(
-            eligible,
-            key=lambda name: (
-                eligible[name]["won"] / eligible[name]["played"],
-                eligible[name]["played"],
-            ),
-        )
-        win_rate = eligible[name]["won"] / eligible[name]["played"]
-        best[level] = {
-            "name": name,
-            "win_pct": f"{win_rate:.0%}",
-            "games_won": eligible[name]["won"],
-        }
-    return best
+    eligible = {
+        name: stats
+        for name, stats in taxonomy_stats.items()
+        if stats["played"] >= MIN_ACCOLADE_GAMES
+    }
+    if not eligible:
+        return {}
+    name = max(
+        eligible,
+        key=lambda name: (
+            eligible[name]["won"] / eligible[name]["played"],
+            eligible[name]["played"],
+        ),
+    )
+    win_rate = eligible[name]["won"] / eligible[name]["played"]
+    return {
+        "name": name,
+        "win_pct": f"{win_rate:.0%}",
+        "games_won": eligible[name]["won"],
+    }
 
 
 def get_worst_accolades(taxonomy_stats):
-    worst = {}
-    for level, taxa in taxonomy_stats.items():
-        eligible = {
-            name: stats for name, stats in taxa.items() if stats["played"] >= MIN_ACCOLADE_GAMES
-        }
-        if not eligible:
-            continue
-        name = min(
-            eligible,
-            key=lambda name: (
-                eligible[name]["won"] / eligible[name]["played"],
-                -eligible[name]["played"],
-            ),
-        )
-        win_rate = eligible[name]["won"] / eligible[name]["played"]
-        worst[level] = {
-            "name": name,
-            "win_pct": f"{win_rate:.0%}",
-            "games_won": eligible[name]["won"],
-        }
-    return worst
+    eligible = {
+        name: stats
+        for name, stats in taxonomy_stats.items()
+        if stats["played"] >= MIN_ACCOLADE_GAMES
+    }
+    if not eligible:
+        return {}
+    name = min(
+        eligible,
+        key=lambda name: (
+            eligible[name]["won"] / eligible[name]["played"],
+            -eligible[name]["played"],
+        ),
+    )
+    win_rate = eligible[name]["won"] / eligible[name]["played"]
+    return {
+        "name": name,
+        "win_pct": f"{win_rate:.0%}",
+        "games_won": eligible[name]["won"],
+    }
 
 
 def get_world_traveler_status(username):
@@ -716,18 +708,20 @@ def get_world_traveler_status(username):
     }
 
 
-def get_species_identified(taxonomy_stats, limit=5):
-    # For each taxonomy level, the top `limit` taxa by count of distinct species won,
-    # sorted descending. No MIN_ACCOLADE_GAMES threshold: a single correctly-identified
-    # species is a countable fact regardless of sample size.
-    species_identified = {}
-    for level, taxa in taxonomy_stats.items():
-        counts = [
-            (name, len(data["species_won"])) for name, data in taxa.items() if data["species_won"]
-        ]
-        counts.sort(key=lambda item: item[1], reverse=True)
-        species_identified[level] = counts[:limit]
-    return species_identified
+def get_species_identified(taxonomy_stats, region_code, limit=5):
+    # The top `limit` families by count of distinct species won, sorted descending.
+    # No MIN_ACCOLADE_GAMES threshold: a single correctly-identified species is a
+    # countable fact regardless of sample size.
+    totals = get_taxon_species_totals(region_code, "family")
+    entries = []
+    for name, data in taxonomy_stats.items():
+        won = len(data["species_won"])
+        total = totals.get(name)
+        if not won or not total:
+            continue
+        entries.append({"name": name, "won": won, "total": total})
+    entries.sort(key=lambda item: item["won"], reverse=True)
+    return entries[:limit]
 
 
 CATCH_EM_ALL_TIERS = [(1.0, "Bird"), (0.75, "Chick"), (0.5, "Hatchling")]
@@ -752,26 +746,21 @@ def get_taxon_species_totals(region_code, level):
 
 
 def get_catch_em_all_progress(taxonomy_stats, region_code):
-    progress = {}
-    for level in ("family", "genus"):
-        totals = get_taxon_species_totals(region_code, level)
-        entries = []
-        for name, data in taxonomy_stats[level].items():
-            total = totals.get(name)
-            if not total:
-                continue
-            pct = len(data["species_won"]) / total
-            tier = next(
-                (label for threshold, label in CATCH_EM_ALL_TIERS if pct >= threshold), None
-            )
-            if tier is None:
-                continue
-            entries.append(
-                (pct, {"name": name, "tier": tier, "won": len(data["species_won"]), "total": total})
-            )
-        entries.sort(key=lambda e: (-e[0], e[1]["name"]))
-        progress[level] = [entry for _, entry in entries]
-    return progress
+    totals = get_taxon_species_totals(region_code, "family")
+    entries = []
+    for name, data in taxonomy_stats.items():
+        total = totals.get(name)
+        if not total:
+            continue
+        pct = len(data["species_won"]) / total
+        tier = next((label for threshold, label in CATCH_EM_ALL_TIERS if pct >= threshold), None)
+        if tier is None:
+            continue
+        entries.append(
+            (pct, {"name": name, "tier": tier, "won": len(data["species_won"]), "total": total})
+        )
+    entries.sort(key=lambda e: (-e[0], e[1]["name"]))
+    return [entry for _, entry in entries]
 
 
 def error_404(request, exception):

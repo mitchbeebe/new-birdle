@@ -6,7 +6,7 @@
 <div class="container pt-2">
     <h3 class="text-center">Accolades ({{request.session.region_code|default:"world"|region_name}})</h3>
 
-    {% if most_played or best or worst or species_identified or world_traveler.earned or catch_em_all.family or catch_em_all.genus %}
+    {% if most_played or best or worst or species_identified or world_traveler.earned or catch_em_all %}
 
     {% if most_played %}
     <hr>
@@ -14,16 +14,13 @@
     <div class="table-responsive">
         <table class="table table-sm">
             <thead>
-                <tr><th>Level</th><th>Taxon</th><th>Games</th></tr>
+                <tr><th>Taxon</th><th>Games</th></tr>
             </thead>
             <tbody>
-                {% for level, accolade in most_played.items %}
                 <tr>
-                    <td>{{ level|title }}</td>
-                    <td>{{ accolade.name }}</td>
-                    <td>{{ accolade.count }}</td>
+                    <td>{{ most_played.name }}</td>
+                    <td>{{ most_played.count }}</td>
                 </tr>
-                {% endfor %}
             </tbody>
         </table>
     </div>
@@ -35,17 +32,14 @@
     <div class="table-responsive">
         <table class="table table-sm">
             <thead>
-                <tr><th>Level</th><th>Taxon</th><th>Win Rate</th><th>Games Won</th></tr>
+                <tr><th>Taxon</th><th>Win Rate</th><th>Games Won</th></tr>
             </thead>
             <tbody>
-                {% for level, accolade in best.items %}
                 <tr>
-                    <td>{{ level|title }}</td>
-                    <td>{{ accolade.name }}</td>
-                    <td>{{ accolade.win_pct }}</td>
-                    <td>{{ accolade.games_won }}</td>
+                    <td>{{ best.name }}</td>
+                    <td>{{ best.win_pct }}</td>
+                    <td>{{ best.games_won }}</td>
                 </tr>
-                {% endfor %}
             </tbody>
         </table>
     </div>
@@ -57,39 +51,32 @@
     <div class="table-responsive">
         <table class="table table-sm">
             <thead>
-                <tr><th>Level</th><th>Taxon</th><th>Win Rate</th><th>Games Won</th></tr>
+                <tr><th>Taxon</th><th>Win Rate</th><th>Games Won</th></tr>
             </thead>
             <tbody>
-                {% for level, accolade in worst.items %}
                 <tr>
-                    <td>{{ level|title }}</td>
-                    <td>{{ accolade.name }}</td>
-                    <td>{{ accolade.win_pct }}</td>
-                    <td>{{ accolade.games_won }}</td>
+                    <td>{{ worst.name }}</td>
+                    <td>{{ worst.win_pct }}</td>
+                    <td>{{ worst.games_won }}</td>
                 </tr>
-                {% endfor %}
             </tbody>
         </table>
     </div>
     {% endif %}
 
-    {% if species_identified.order or species_identified.family or species_identified.genus %}
+    {% if species_identified %}
     <hr>
     <h5><i class="fas fa-binoculars"></i> Species Identified</h5>
     <div class="table-responsive">
         <table class="table table-sm">
             <thead>
-                <tr><th>Level</th><th>Taxon</th><th>Species Count</th></tr>
+                <tr><th>Taxon</th></tr>
             </thead>
             <tbody>
-                {% for level, taxa in species_identified.items %}
-                {% for name, count in taxa %}
+                {% for item in species_identified %}
                 <tr>
-                    <td>{{ level|title }}</td>
-                    <td>{{ name }}</td>
-                    <td>{{ count }}</td>
+                    <td>{{ item.won }} of {{ item.total }} {{ item.name }}</td>
                 </tr>
-                {% endfor %}
                 {% endfor %}
             </tbody>
         </table>
@@ -106,19 +93,17 @@
     </div>
     {% endif %}
 
-    {% if catch_em_all.family or catch_em_all.genus %}
+    {% if catch_em_all %}
     <hr>
     <h5><i class="fas fa-trophy"></i> Catch 'Em All</h5>
     <div class="table-responsive">
         <table class="table table-sm align-middle">
             <thead>
-                <tr><th>Level</th><th>Taxon</th><th>Tier</th><th>Progress</th></tr>
+                <tr><th>Taxon</th><th>Tier</th><th>Progress</th></tr>
             </thead>
             <tbody>
-                {% for level, taxa in catch_em_all.items %}
-                {% for item in taxa %}
+                {% for item in catch_em_all %}
                 <tr>
-                    <td>{{ level|title }}</td>
                     <td>{{ item.name }}</td>
                     <td>{{ item.tier }}</td>
                     <td style="min-width: 150px;">
@@ -129,7 +114,6 @@
                         </div>
                     </td>
                 </tr>
-                {% endfor %}
                 {% endfor %}
             </tbody>
         </table>

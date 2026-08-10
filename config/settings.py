@@ -49,7 +49,7 @@ if not IS_HEROKU_APP:
 if IS_HEROKU_APP:
     ALLOWED_HOSTS = ["*"]
 else:
-    ALLOWED_HOSTS = []
+    ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h]
 
 
 # Application definition
@@ -186,4 +186,4 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.play-birdle.com",
     "http://www.play-birdle.com",
     "https://www.play-birdle.com/region",
-]
+] + [o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o]

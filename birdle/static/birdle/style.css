@@ -8,10 +8,13 @@
 }
 
 .img-label {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
     background-color: rgba(0,0,0,.4);
     color: #fff;
     padding: 5px 20px 5px 20px;
-    border-radius: 5px;
+    border-radius: 0 0 5px 5px;
     font-size: large;
 }
 
@@ -75,14 +78,19 @@
 }
 
 /* .carousel { overflow: hidden; padding-bottom: 4rem; } */
-.img-label-wrap {
+.img-frame {
+    display: inline-block;
+    max-width: 100%;
+}
+
+.carousel-item {
     text-align: center;
-    margin-top: 0.5rem;
 }
 
 .carousel-inner img {
     height: 25vh;
-    width: 100%;
+    width: auto;
+    max-width: 100%;
     /* overflow: hidden; */
     object-fit: contain;
     object-position: center;

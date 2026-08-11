@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.panel import Panel
 from birdle.models import Bird
 
-MAX_TOKENS = 384
+MAX_TOKENS = 512
 
 # The model provider is abstracted via LangChain's with_structured_output, so
 # switching providers later should mainly mean swapping the ChatOpenAI(...)

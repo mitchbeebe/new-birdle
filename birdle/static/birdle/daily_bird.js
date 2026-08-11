@@ -129,18 +129,31 @@ function updateHint(clippy, popover, hintData) {
 const pluralize = (count, noun, suffix = 'es') => `${count} ${noun}${count !== 1 ? suffix : ''}`;
 
 function showAlert(guessCount, isWinner, emojis, birdData) {
+  // Native share sheet on mobile, clipboard copy on desktop.
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const canShare = isMobile && typeof navigator.share === 'function';
+
   Swal.mixin({
     title: isWinner ? "Congratulations!" : "Oh no!",
     html: isWinner ?
       `You got today's Birdle in ${pluralize(guessCount, 'guess')}.<br>Learn more about the <a href="${birdData.url}" target=_blank>${birdData.name}</a>.` :
       `Today's bird was the <a href="${birdData.url}" target=_blank>${birdData.name}</a>. But don't fret, <a href='https://birdsarentreal.com/' target=_blank>birds aren't real</a> anyway.`,
     icon: isWinner ? "success" : "error",
-    confirmButtonText: "Copy Results",
+    confirmButtonText: canShare ? "Share Results" : "Copy Results",
     showDenyButton: true,
-    denyButtonText: "Close"
+    denyButtonText: "Close",
+    // Sharing must happen synchronously within the button click, before Swal
+    // starts its close animation, or browsers drop the user-activation
+    // required by navigator.share().
+    preConfirm: () => {
+      if (canShare) {
+        navigator.share({ text: emojis }).catch(() => {});
+      } else {
+        navigator.clipboard.writeText(emojis);
+      }
+    }
   }).fire().then((result) => {
-    if (result.isConfirmed) {
-      navigator.clipboard.writeText(emojis);
+    if (result.isConfirmed && !canShare) {
       Swal.fire({
         toast: true,
         title: 'Copied!',

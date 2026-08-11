@@ -115,7 +115,7 @@ function renderHintEntry(title, message) {
   entry.className = 'hint-entry';
 
   const titleEl = document.createElement('strong');
-  titleEl.textContent = title;
+  titleEl.textContent = title + ":";
   entry.appendChild(titleEl);
   entry.appendChild(document.createTextNode(` ${message}`));
 
@@ -132,8 +132,8 @@ function updateHint(clippy, popover, hintData) {
     clippy.classList.add('bounce');
     setTimeout(() => clippy.classList.remove('bounce'), 500);
 
-    // Update popover title directly
-    popover._config.title = hintData.title;
+    // Update popover title directly, phrased as a question
+    popover._config.title = `${hintData.title}?`;
     renderHintEntry(hintData.title, hintData.message);
 
     if (hintData.message !== "The game's over. Go outside.") {

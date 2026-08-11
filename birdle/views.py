@@ -484,9 +484,9 @@ def region(request):
 def get_hint_tiers(bird):
     """Build the (threshold, title, message) tuples for each hint tier, lowest guess_count first."""
     return [
-        (3, "Want a hint?", bird.hint_vague or f"I'm in the {bird.family} family."),
-        (4, "Want another hint?", bird.hint_general or f"My genus is '{bird.genus}'."),
-        (5, "One final hint?", bird.hint_specific or f"My name starts with '{bird.name[:3]}'."),
+        (3, "First hint", bird.hint_vague or f"I'm in the {bird.family} family."),
+        (4, "Second hint", bird.hint_general or f"My genus is '{bird.genus}'."),
+        (5, "Third hint", bird.hint_specific or f"My name starts with '{bird.name[:3]}'."),
     ]
 
 
@@ -498,7 +498,7 @@ def get_hint_data(guess_count, bird, is_winner=False):
     if guess_count == 6 or is_winner:
         return {
             "show": True,
-            "title": "You want a hint?",
+            "title": "Final hint",
             "message": "The game's over. Go outside.",
         }
 

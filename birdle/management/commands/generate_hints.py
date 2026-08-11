@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.panel import Panel
 from birdle.models import Bird
 
-MAX_TOKENS = 512
+MAX_TOKENS = 384
 
 # The model provider is abstracted via LangChain's with_structured_output, so
 # switching providers later should mainly mean swapping the ChatOpenAI(...)
@@ -22,40 +22,44 @@ class Riddles(BaseModel):
         ...,
         description=(
             "A very vague riddle that could apply to many birds. "
-            "Hint at behavior or habitat rather than appearance."
+            "Hint only at behavior or habitat rather than appearance, "
+            "family, or name origin. "
+            "Two short clauses of similar length ending in words that "
+            "truly rhyme (same end sound, not just similar spelling)."
         ),
-        examples=[("I strut where people meet the street, seeking crumbs with nimble feet.")],
+        examples=[("I strut where people meet the street; seeking crumbs with nimble feet.")],
     )
     general: str = Field(
         ...,
         description=(
             "A more general riddle that narrows down the possibilities. "
-            "Hint at family-level characteristics or similarities to other "
-            "birds without using words that give away the name."
+            "Explicitly reference a relative or shared family trait (e.g. "
+            "'my cousin the ...') without using words that give away the "
+            "name. "
+            "Two short clauses of similar length ending in words that "
+            "truly rhyme (same end sound, not just similar spelling)."
         ),
+        examples=[("In my family, my cousin the dove; perched on buildings, cooing above.")],
     )
     specific: str = Field(
         ...,
         description=(
             "A specific riddle that should make the bird easily identifiable. "
-            "You may hint at how the bird got its name, but DO NOT use words "
-            "that give away the name."
+            "Hint at how the bird got its name (its etymology), but DO NOT "
+            "use words that give away the name. "
+            "Two short clauses of similar length ending in words that "
+            "truly rhyme (same end sound, not just similar spelling)."
         ),
-        examples=[
-            (
-                "My name comes from a churchman's robe; "
-                "Spot me in the backyard, the birdfeeders I probe."
-            )
-        ],
+        examples=[("Mountains and cliffs, my name implies; famous in NYC, my habitat belies.")],
     )
 
 
 def get_offlimit_words(bird):
     raw_offlimit_words = (
-        bird.name.lower().split()
-        + bird.order.lower().split()
-        + bird.family.lower().split()
-        + bird.genus.lower().split()
+        re.split(r"[\s-]+", bird.name.lower())
+        + re.split(r"[\s-]+", bird.order.lower())
+        + re.split(r"[\s-]+", bird.family.lower())
+        + re.split(r"[\s-]+", bird.genus.lower())
     )
     offlimit_words = []
     for word in raw_offlimit_words:
@@ -75,20 +79,27 @@ def build_riddle_prompt(bird):
         "Priority rules (highest to lowest):\n"
         "1) Safety constraint: Never output any forbidden term\n"
         "2) Riddle structure: Return exactly three riddles\n"
-        "3) Style: Riddles contain two clauses that rhyme and are "
-        "separated by a semicolon\n\n"
+        "3) Rhyme: Riddles contain two clauses, separated by a semicolon, "
+        "whose final words truly rhyme (same end sound, e.g. 'street'/"
+        "'feet' — not just similar spelling, e.g. NOT 'suit'/'greet')\n"
+        "4) Riddle length: Keep it under 20 words, with both clauses "
+        "close to the same length\n\n"
         "Forbidden-term rule:\n"
         "- A riddle is invalid if it contains any forbidden term in any form:\n"
         "  exact word, plural/possessive, hyphenated form, or as part of a "
         "compound (including '-like').\n"
-        "- Before producing final output, silently check all three riddles against "
-        "the forbidden list and rewrite until zero violations.\n"
+        "- Before producing final output, silently check each riddle for: "
+        "(a) zero forbidden-term violations, (b) a true end rhyme between "
+        "the two clauses, (c) balanced clause length. Rewrite any riddle "
+        "that fails any of these checks.\n"
         "- Do not mention the forbidden list or say that words are forbidden.\n\n"
-        "Riddle intent:\n"
-        "- vague: broad behavior/habitat clue that applies to many birds\n"
-        "- general: hint at family-level traits or similarity to other birds, "
-        "without forbidden terms\n"
-        "- specific: strong clue, hint at naming origin, without forbidden "
+        "Riddle intent (each riddle should narrow down the bird further "
+        "than the last):\n"
+        "- vague: broad behavior/habitat clue that applies to many birds; "
+        "no family or name hints\n"
+        "- general: explicitly reference a relative or shared family trait "
+        "(e.g. 'my cousin the ...'), without forbidden terms\n"
+        "- specific: hint at the name's etymology, without forbidden "
         "terms\n\n"
         "Output format:\n"
         "Return only the JSON object for the required schema fields: "
@@ -119,7 +130,10 @@ def build_riddle_llm():
     # reasoning tokens, which otherwise silently eat the whole max_tokens
     # budget before any riddle text is produced.
     llm = ChatOpenAI(
-        model=HINT_MODEL, temperature=None, max_tokens=MAX_TOKENS, reasoning_effort="none"
+        model=HINT_MODEL,
+        temperature=None,
+        max_completion_tokens=MAX_TOKENS,
+        reasoning_effort="none",
     )
     return llm.with_structured_output(Riddles)
 

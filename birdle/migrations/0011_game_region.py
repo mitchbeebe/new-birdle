@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("birdle", "0010_region_remove_birdregion_region_code_and_more"),
+        ("birdle", "0010_1_seed_world_region"),
     ]
 
     operations = [

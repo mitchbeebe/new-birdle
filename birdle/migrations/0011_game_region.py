@@ -5,12 +5,26 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+def seed_world_region(apps, schema_editor):
+    # Region.get_default_pk (used as this migration's field default below)
+    # requires a "World" Region row to already exist. On an already-migrated
+    # database this is a no-op since that row exists; on a fresh database
+    # (e.g. the test DB) it's the only thing that makes this migration runnable.
+    Region = apps.get_model("birdle", "Region")
+    Region.objects.get_or_create(name="World", defaults={"code": "world"})
+
+
+def noop(apps, schema_editor):
+    pass
+
+
 class Migration(migrations.Migration):
     dependencies = [
-        ("birdle", "0010_1_seed_world_region"),
+        ("birdle", "0010_region_remove_birdregion_region_code_and_more"),
     ]
 
     operations = [
+        migrations.RunPython(seed_world_region, noop),
         migrations.AddField(
             model_name="game",
             name="region",

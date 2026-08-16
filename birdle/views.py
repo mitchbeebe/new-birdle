@@ -20,12 +20,24 @@ from pandas import date_range
 
 
 def random_bird(region_code="world"):
-    # Randomly draw a bird from the region provided
+    # Randomly draw a bird from the region provided, excluding birds
+    # used in the most recent games for that region so no species repeats
+    # until the rest of the pool has cycled through.
     region = Region.objects.get(code=region_code)
     birdregions = BirdRegion.objects.filter(region=region)
-    count = birdregions.count()
+    pool_size = birdregions.count()
+
+    cooldown = max(pool_size - 1, 0)
+    recent_bird_ids = (
+        Game.objects.filter(region=region)
+        .order_by("-date")
+        .values_list("bird_id", flat=True)[:cooldown]
+    )
+    candidates = birdregions.exclude(bird_id__in=recent_bird_ids)
+
+    count = candidates.count()
     idx = random.randrange(0, count)
-    bird = birdregions[idx].bird
+    bird = candidates[idx].bird
     return bird
 
 

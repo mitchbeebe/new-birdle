@@ -133,6 +133,7 @@ def daily_bird(request, region_code=None):
             "guess_count": usergame.guess_count,
             "emojis": build_results_emojis(game, guesses),
             "hint": get_hint_data(usergame.guess_count, game.bird, usergame.is_winner),
+            "hint_history": get_hint_history(usergame.guess_count, game.bird, usergame.is_winner),
         }
         return render(request, "birdle/daily_bird.html", context)
 
@@ -185,6 +186,7 @@ def daily_bird(request, region_code=None):
                 "genus": guess.genus if correctness[2] else None,
             },
             "hint": get_hint_data(guess_count, game.bird, usergame.is_winner),
+            "hint_history": get_hint_history(guess_count, game.bird, usergame.is_winner),
         }
         return JsonResponse(context)
 
@@ -509,6 +511,15 @@ def region(request):
     )
 
 
+def get_hint_tiers(bird):
+    """Build the (threshold, title, message) tuples for each hint tier, lowest guess_count first."""
+    return [
+        (3, "First hint", bird.hint_vague or f"I'm in the {bird.family} family."),
+        (4, "Second hint", bird.hint_general or f"My genus is '{bird.genus}'."),
+        (5, "Third hint", bird.hint_specific or f"My name starts with '{bird.name[:3]}'."),
+    ]
+
+
 def get_hint_data(guess_count, bird, is_winner=False):
     """Generate hint information based on current guess count, bird, and win status."""
     if guess_count < 3:
@@ -517,27 +528,22 @@ def get_hint_data(guess_count, bird, is_winner=False):
     if guess_count == 6 or is_winner:
         return {
             "show": True,
-            "title": "You want a hint?",
+            "title": "Final hint",
             "message": "The game's over. Go outside.",
         }
-    elif guess_count == 5:
-        return {
-            "show": True,
-            "title": "One final hint?",
-            "message": f"My name starts with '{bird.name[:3]}'.",
-        }
-    elif guess_count == 4:
-        return {
-            "show": True,
-            "title": "Want another hint?",
-            "message": f"My genus is '{bird.genus}'.",
-        }
-    else:  # guess_count == 3
-        return {
-            "show": True,
-            "title": "Want a hint?",
-            "message": f"I'm in the {bird.family} family.",
-        }
+
+    for threshold, title, message in reversed(get_hint_tiers(bird)):
+        if guess_count >= threshold:
+            return {"show": True, "title": title, "message": message}
+
+
+def get_hint_history(guess_count, bird, is_winner=False):
+    """Return every hint tier unlocked so far, as a list of {"title", "message"} dicts."""
+    return [
+        {"title": title, "message": message}
+        for threshold, title, message in get_hint_tiers(bird)
+        if guess_count >= threshold
+    ]
 
 
 def build_results_emojis(game, guesses):

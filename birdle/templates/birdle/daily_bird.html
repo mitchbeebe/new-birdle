@@ -51,7 +51,7 @@
   </div>
 </div>
 
-<button id="clippy" type="button" class="btn btn-sm btn-light btn-outline-secondary {% if not hint.show %}visually-hidden{% endif %} rounded-circle position-fixed bottom-0 end-0 mb-5 me-2" data-bs-toggle="popover" data-bs-placement="left" data-bs-trigger="click" title="{{ hint.title }}" data-bs-content='
+<button id="clippy" type="button" class="btn btn-sm btn-light btn-outline-secondary {% if not hint.show %}visually-hidden{% endif %} rounded-circle position-fixed bottom-0 end-0 mb-5 me-2" data-bs-toggle="popover" data-bs-placement="left" data-bs-trigger="click" title="{{ hint.title }}?" data-bs-content='
 <div class="text-center">
 <a id="hintBtn" tabindex="0" type="button" class="btn btn-primary btn-sm py-0">Yes</a>
 <a id="noBtn" tabindex="0" type="button" class="btn btn-secondary btn-sm py-0">No</a>
@@ -61,14 +61,13 @@
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
   <div id="hintToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
     <div class="toast-header">
-      <strong class="me-auto">Hint</strong>
+      <strong class="me-auto">Hints</strong>
       <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
     </div>
-    <div class="toast-body" id="hint_msg">
-      {{ hint.message }}
-    </div>
+    <div class="toast-body" id="hint_msg"></div>
   </div>
 </div>
+{{ hint_history|json_script:"hint-history-data" }}
 
 <br>
 <br>

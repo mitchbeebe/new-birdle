@@ -104,15 +104,37 @@ function initializeHintSystem(clippy, popover) {
   });
 }
 
+// Titles of hints already rendered into the toast, to avoid duplicate entries
+const shownHintTitles = new Set();
+
+function renderHintEntry(title, message) {
+  if (shownHintTitles.has(title)) return;
+  shownHintTitles.add(title);
+
+  const entry = document.createElement('div');
+  entry.className = 'hint-entry';
+
+  const titleEl = document.createElement('strong');
+  titleEl.textContent = title + ":";
+  entry.appendChild(titleEl);
+  entry.appendChild(document.createTextNode(` ${message}`));
+
+  document.getElementById('hint_msg').appendChild(entry);
+}
+
+function renderHintHistory(hintHistory) {
+  (hintHistory || []).forEach((hint) => renderHintEntry(hint.title, hint.message));
+}
+
 function updateHint(clippy, popover, hintData) {
   if (hintData.show) {
     clippy.classList.remove('visually-hidden');
     clippy.classList.add('bounce');
     setTimeout(() => clippy.classList.remove('bounce'), 500);
 
-    // Update popover title directly
-    popover._config.title = hintData.title;
-    document.getElementById('hint_msg').textContent = hintData.message;
+    // Update popover title directly, phrased as a question
+    popover._config.title = `${hintData.title}?`;
+    renderHintEntry(hintData.title, hintData.message);
 
     if (hintData.message !== "The game's over. Go outside.") {
       // Delay showing popover to allow proper positioning
@@ -226,6 +248,9 @@ function initializeFormSubmission(clippy, popover, birdData) {
       }
 
       // Update hint display
+      if (response.hint_history) {
+        renderHintHistory(response.hint_history);
+      }
       if (response.hint) {
         updateHint(clippy, popover, response.hint);
       }
@@ -270,11 +295,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize hint system
   initializeHintSystem(clippy, popover);
 
+  // Render any hints already unlocked before this page load
+  const hintHistoryEl = document.getElementById('hint-history-data');
+  if (hintHistoryEl) {
+    renderHintHistory(JSON.parse(hintHistoryEl.textContent));
+  }
+
   // Check if game is over
   const isGameOver = config.isWinner || config.guessCount == 6;
 
   // Show initial alert if game is over
   if (isGameOver) {
+    renderHintEntry(config.hint.title, config.hint.message);
     showAlert(config.guessCount, config.isWinner, config.emojis, config.bird);
     disableGameControls(config.isWinner);
   } else {

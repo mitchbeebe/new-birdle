@@ -9,7 +9,8 @@ from urllib.parse import quote, unquote, urlparse
 from django.contrib.auth.models import User
 from .models import Bird, Guess, Game, UserGame, Image, BirdRegion, Region
 from .forms import BirdRegionForm
-from django.db.models import Q
+from django.core.cache import cache
+from django.db.models import Count, Exists, OuterRef, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.template.loader import render_to_string
 from django.template.defaulttags import register
@@ -73,6 +74,10 @@ def todays_game(region_code="world", tz=None):
             # Redraw bird if fewer than 2 images
             return todays_game(region_code, tz)
     return game
+
+
+def _stats_cache_key(username, region_code):
+    return f"stats:{username}:{region_code}"
 
 
 def daily_bird(request, region_code=None):
@@ -155,6 +160,7 @@ def daily_bird(request, region_code=None):
                 bird=guess,
                 hint_used=request.POST.get("hint_used") == "true",
             )
+            cache.delete(_stats_cache_key(user.username, region_code))
 
         # Get all user guesses
         guesses = Guess.objects.filter(usergame=usergame).order_by("guessed_at")
@@ -196,9 +202,20 @@ def stats(request, region_code=None):
 
     username = request.session.get("username")
     user_tz = get_user_timezone(request)
+    cache_key = _stats_cache_key(username, region_code) if username else None
+    stats = cache.get(cache_key) if cache_key else None
     # Retrieve the user's guess history from the database
-    if username:
-        usergames = UserGame.objects.filter(user__username=username, game__region__code=region_code)
+    if username and stats is None:
+        usergames = (
+            UserGame.objects.filter(user__username=username, game__region__code=region_code)
+            .select_related("game__bird")
+            .annotate(
+                num_guesses=Count("guess"),
+                has_won=Exists(
+                    Guess.objects.filter(usergame=OuterRef("pk"), bird=OuterRef("game__bird"))
+                ),
+            )
+        )
         today = datetime.now(timezone.utc).astimezone(user_tz).date()
         first_game = min([usergame.game.date for usergame in usergames] + [today])
         games = Game.objects.filter(
@@ -206,17 +223,17 @@ def stats(request, region_code=None):
         ).order_by("date")
 
         # User stats
-        games_played = len([game for game in usergames if game.guess_count > 0])
-        wins = [game for game in usergames if game.is_winner]
+        games_played = len([game for game in usergames if game.num_guesses > 0])
+        wins = [game for game in usergames if game.has_won]
         games_won = len(wins)
         win_pct = games_won / games_played if games_played > 0 else 0
-        guess_counts = [game.guess_count for game in wins if game.guess_count > 0]
+        guess_counts = [game.num_guesses for game in wins if game.num_guesses > 0]
         guess_dist = [{"guesses": i, "count": guess_counts.count(i)} for i in range(1, 7)]
 
         def result(game):
-            if game.guess_count == 0:
+            if game.num_guesses == 0:
                 result = "Did not play"
-            elif game.is_winner:
+            elif game.has_won:
                 result = "Win"
             else:
                 result = "Loss"
@@ -241,7 +258,7 @@ def stats(request, region_code=None):
         if todays_result:
             history = (
                 history[0:-1]
-                if todays_result[0].guess_count < 6 and not todays_result[0].is_winner
+                if todays_result[0].num_guesses < 6 and not todays_result[0].has_won
                 else history
             )
         else:
@@ -269,7 +286,8 @@ def stats(request, region_code=None):
             "current_streak": current_streak,
             "best_streak": best_streak,
         }
-    else:
+        cache.set(cache_key, stats, timeout=60 * 10)
+    elif not username:
         stats = {
             "games_played": 0,
             "games_won": 0,

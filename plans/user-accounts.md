@@ -1,6 +1,6 @@
 # User accounts — MIT-8 (Login/Sign-up) + MIT-9 (Profile/settings)
 
-Branch: `user-accts` (off `origin/main`). One draft PR covers both issues.
+Branch: `premium` (off `origin/main`). One draft PR covers both issues.
 
 ## Summary
 

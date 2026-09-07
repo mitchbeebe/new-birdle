@@ -754,6 +754,25 @@ class CustomRegionTests(TestCase):
         self.go_premium()
         self.assertContains(self.client.get("/premium/"), "Custom (near me)")
 
+    def test_region_switcher_from_profile_goes_home(self):
+        self.go_premium()
+        self.build(["amerob"])
+        response = self.client.post(
+            "/region",
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TRIGGER_NAME="custom",
+            HTTP_HX_CURRENT_URL="http://testserver/accounts/profile/",
+        )
+        self.assertEqual(response["HX-Redirect"], "/custom/")
+        self.assertEqual(self.client.session["region_code"], "custom")
+        response = self.client.post(
+            "/region",
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TRIGGER_NAME="world",
+            HTTP_HX_CURRENT_URL="http://testserver/custom/stats/",
+        )
+        self.assertEqual(response["HX-Redirect"], "/world/stats/")
+
     def test_delete_removes_region_and_resets_session(self):
         self.go_premium()
         self.build(["amerob"])

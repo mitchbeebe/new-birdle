@@ -45,6 +45,8 @@ logger = logging.getLogger(__name__)
 # Public code for a premium user's custom region; resolved per user to ``custom-<pk>``.
 CUSTOM_REGION_CODE = "custom"
 CUSTOM_REGION_NAME = "Custom (near me)"
+# Paths under /<region>/ that the region switcher preserves when changing regions.
+REGION_PAGE_SUFFIXES = {"stats", "archive"}
 
 
 def custom_region_db_code(user) -> str:
@@ -785,6 +787,9 @@ def region(request):
         # Path has no region prefix
         suffix = path_parts[0] if path_parts[0] else ""
 
+    # Only regional sub-pages carry over; anything else (e.g. /accounts/profile/) goes home.
+    if suffix not in REGION_PAGE_SUFFIXES:
+        suffix = ""
     redirect_path = f"/{region_code}/{suffix}/" if suffix else f"/{region_code}/"
     redirect_path = redirect_path.replace("//", "/")
 

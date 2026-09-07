@@ -34,6 +34,7 @@ from . import premium as premium_lib
 from .signals import merge_anonymous_history
 from .premium import premium_required
 from .accolades import detailed_stats
+from . import leaderboards
 from django.core.cache import cache
 from django.db.models import Count, Exists, OuterRef, Q
 from django.http import (
@@ -735,6 +736,54 @@ def stats(request, region_code=None):
     if not premium:
         context.pop("detailed", None)
     return render(request, "birdle/stats.html", context)
+
+
+PERIODS = {"month": "This month", "week": "This week", "all": "All time"}
+
+
+@premium_lib.premium_required
+def leaderboard(request, region_code=None):
+    # Redirect to regional URL if no region code provided
+    if not region_code:
+        region_code = request.session.get("region_code", "world")
+        return redirect("leaderboard_region", region_code=region_code)
+
+    # Validate region code
+    if region_code not in get_regions():
+        raise Http404("Region not found")
+    request.session["region_code"] = region_code
+
+    period = request.GET.get("period", "month")
+    if period not in PERIODS:
+        period = "month"
+    today = datetime.now(timezone.utc).astimezone(get_user_timezone(request)).date()
+    start, end = leaderboards.period_bounds(period, today)
+
+    boards = []
+    for key, title, rows in [
+        ("played", "Games played", leaderboards.played(region_code, start, end)),
+        ("wins", "Weighted wins", leaderboards.weighted_wins(region_code, start, end)),
+        ("streak", "Current streak", leaderboards.streaks(region_code, today)),
+    ]:
+        boards.append(
+            {
+                "key": key,
+                "title": title,
+                "rows": rows[: leaderboards.TOP_N],
+                "total": len(rows),
+                "rank": leaderboards.rank_of(rows, request.user.pk),
+            }
+        )
+    return render(
+        request,
+        "birdle/leaderboard.html",
+        {
+            "boards": boards,
+            "period": period,
+            "period_label": PERIODS[period].lower(),
+            "periods": PERIODS,
+        },
+    )
 
 
 def info(request):

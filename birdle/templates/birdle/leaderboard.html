@@ -1,0 +1,49 @@
+<!-- leaderboard.html -->
+
+{% extends 'birdle/base.html' %}
+
+{% block content %}
+<div class="container pt-2" style="max-width: 640px;">
+    <h3 class="text-center">Leaderboard ({{request.session.region_code|default:"world"|region_name}})</h3>
+    <div class="d-flex justify-content-center mb-3">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Time period">
+            {% for code, name in periods.items %}
+            <a href="?period={{ code }}" class="btn btn-outline-secondary{% if code == period %} active{% endif %}">{{ name }}</a>
+            {% endfor %}
+        </div>
+    </div>
+    <ul class="nav nav-tabs nav-fill" role="tablist">
+        {% for board in boards %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link{% if forloop.first %} active{% endif %}" data-bs-toggle="tab" data-bs-target="#board-{{ board.key }}" type="button" role="tab">{{ board.title }}</button>
+        </li>
+        {% endfor %}
+    </ul>
+    <div class="tab-content">
+        {% for board in boards %}
+        <div class="tab-pane fade{% if forloop.first %} show active{% endif %}" id="board-{{ board.key }}" role="tabpanel">
+            <p class="text-center text-body-secondary my-2">
+                {% if board.rank %}You are #{{ board.rank }} of {{ board.total }}{% else %}You are unranked{% endif %}
+                {% if board.key == "streak" %}(current streak){% else %}({{ period_label }}){% endif %}
+            </p>
+            {% if board.rows %}
+            <table class="table table-sm">
+                <thead><tr><th>#</th><th>Player</th><th class="text-end">{{ board.title }}</th></tr></thead>
+                <tbody>
+                    {% for user_id, username, score in board.rows %}
+                    <tr{% if user_id == user.pk %} class="table-active fw-semibold"{% endif %}>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ username }}</td>
+                        <td class="text-end">{{ score }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-center">No one on the board yet.</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

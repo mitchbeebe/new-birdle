@@ -4,6 +4,12 @@
 {% load static %}
 {% block content %}
 <div class="container pt-2">
+  {% if archive %}
+  <div class="text-center small mb-1">
+    <strong>Archive &middot; {{ game_date|date:"Y-m-d" }}</strong>
+    &nbsp;<a href="{% url 'archive' request.session.region_code %}">Back to archive</a>
+  </div>
+  {% endif %}
   {% include 'birdle/bird_display.html'%}
   <form method="post" id="guess-form">
     {% csrf_token %}

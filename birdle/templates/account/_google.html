@@ -1,0 +1,6 @@
+{% load socialaccount %}
+{% google_login_enabled as show_google_login %}
+{% if show_google_login %}
+<div class="text-center text-body-secondary my-2">or</div>
+<a href="{% provider_login_url 'google' %}" class="btn btn-outline-primary w-100"><i class="fa-brands fa-google"></i> Continue with Google</a>
+{% endif %}

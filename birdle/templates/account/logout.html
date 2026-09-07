@@ -1,0 +1,12 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Log Out{% endblock %}
+
+{% block card_body %}
+<p class="text-center">Are you sure you want to log out?</p>
+<form method="post" action="{% url 'account_logout' %}">
+    {% csrf_token %}
+    {{ redirect_field }}
+    <button type="submit" class="btn btn-primary w-100">Log Out</button>
+</form>
+{% endblock %}

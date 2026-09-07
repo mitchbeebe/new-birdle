@@ -1,0 +1,9 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Email a Login Code{% endblock %}
+
+{% block card_body %}
+<p>Enter your email address and we'll send you a one-time code to log in.</p>
+{% include 'account/_form.html' with submit_label="Send Code" %}
+<p class="text-center mt-3 mb-0"><a href="{% url 'account_login' %}">Back to log in</a></p>
+{% endblock %}

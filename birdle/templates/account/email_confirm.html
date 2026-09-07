@@ -1,0 +1,15 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Confirm Email{% endblock %}
+
+{% block card_body %}
+{% if confirmation %}
+<p>Please confirm that <strong>{{ confirmation.email_address.email }}</strong> is your email address.</p>
+<form method="post" action="{% url 'account_confirm_email' confirmation.key %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary w-100">Confirm</button>
+</form>
+{% else %}
+<p class="mb-0">This confirmation link has expired or is invalid. Log in and request a new one from your profile.</p>
+{% endif %}
+{% endblock %}

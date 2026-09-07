@@ -1,0 +1,9 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Sign Up{% endblock %}
+
+{% block card_body %}
+{% include 'account/_form.html' with submit_label="Sign Up" %}
+{% include 'account/_google.html' %}
+<p class="text-center mt-3 mb-0">Already have an account? <a href="{{ login_url }}">Log in</a>.</p>
+{% endblock %}

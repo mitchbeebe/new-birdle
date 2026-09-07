@@ -1,0 +1,12 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Enter Login Code{% endblock %}
+
+{% block card_body %}
+<p>We emailed a code to <strong>{{ email }}</strong>. Enter it below to log in.</p>
+{% include 'account/_form.html' with submit_label="Log In" %}
+<form method="post" action="{% url 'account_login' %}" class="text-center mt-3">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-link p-0">Use a different email</button>
+</form>
+{% endblock %}

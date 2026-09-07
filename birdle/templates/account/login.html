@@ -1,0 +1,14 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Log In{% endblock %}
+
+{% block card_body %}
+{% include 'account/_form.html' with submit_label="Log In" %}
+<div class="text-center mt-3">
+    <a href="{% url 'account_request_login_code' %}">Email me a login code</a>
+    <span class="text-body-secondary mx-1">&middot;</span>
+    <a href="{% url 'account_reset_password' %}">Forgot your password?</a>
+</div>
+{% include 'account/_google.html' %}
+<p class="text-center mt-3 mb-0">Don't have an account? <a href="{{ signup_url }}">Sign up</a>.</p>
+{% endblock %}

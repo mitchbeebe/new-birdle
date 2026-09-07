@@ -247,7 +247,7 @@ def _past_game_or_404(region_code, date_str, tz):
         raise Http404("No game for that date")
 
 
-@login_required  # TODO(MIT-21): swap for premium_required
+@premium_lib.premium_required
 def archive(request, region_code):
     _validate_region(request, region_code)
     user_tz = get_user_timezone(request)
@@ -295,7 +295,7 @@ def archive(request, region_code):
     return render(request, "birdle/archive.html", context)
 
 
-@login_required  # TODO(MIT-21): swap for premium_required
+@premium_lib.premium_required
 def archive_game(request, region_code, date):
     _validate_region(request, region_code)
     user_tz = get_user_timezone(request)

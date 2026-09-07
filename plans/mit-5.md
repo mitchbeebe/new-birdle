@@ -16,7 +16,7 @@ branch.
 ## Model change (`birdle/models.py`)
 
 Add `is_archive = models.BooleanField(default=False)` to `UserGame`. Migration
-`0014_usergame_is_archive`. (If `mit-21` lands first and also uses `0014`, renumber on rebase;
+`0015_usergame_is_archive` (after `0014_membership` from MIT-21). (If `mit-21` lands first and also uses `0014`, renumber on rebase;
 Django merges cleanly either way.)
 
 ## Refactor `daily_bird` so a game can be played by date (`birdle/views.py`)

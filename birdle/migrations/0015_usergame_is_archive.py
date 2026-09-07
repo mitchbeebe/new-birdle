@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("birdle", "0013_birdregion_birdle_bird_region__7c1a95_idx"),
+        ("birdle", "0014_membership"),
     ]
 
     operations = [

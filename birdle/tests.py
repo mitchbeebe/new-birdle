@@ -496,11 +496,23 @@ class ArchiveTests(TestCase):
             self.games[days_ago] = Game.objects.create(date=day, bird=bird, region=self.region)
         self.yesterday_url = f"/world/archive/{self.games[1].date.isoformat()}/"
 
-    def login(self):
+    def login(self, premium=True):
+        if premium:
+            Membership.objects.create(
+                user=self.user, comp_until=django_timezone.now() + timedelta(days=1)
+            )
         self.client.force_login(self.user)
         session = self.client.session
         session["username"] = self.user.username
         session.save()
+
+    def test_non_premium_redirected_to_premium_page(self):
+        self.login(premium=False)
+        for url in ["/world/archive/", self.yesterday_url]:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response["Location"], "/premium/")
 
     def test_anonymous_redirected_to_login(self):
         for url in ["/world/archive/", self.yesterday_url]:

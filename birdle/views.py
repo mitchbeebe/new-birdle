@@ -15,6 +15,7 @@ from .models import Bird, Guess, Game, Membership, UserGame, Image, BirdRegion, 
 from .forms import BirdRegionForm, UsernameForm
 from . import premium as premium_lib
 from django.core.cache import cache
+from django.core.paginator import Paginator
 from django.db.models import Count, Exists, OuterRef, Q
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.urls import reverse
@@ -22,7 +23,7 @@ from django.template.loader import render_to_string
 from django.template.defaulttags import register
 import logging
 import pytz
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from random import choices
 from pandas import date_range
 
@@ -102,7 +103,12 @@ def daily_bird(request, region_code=None):
 
     user_tz = get_user_timezone(request)
     game = todays_game(region_code, tz=user_tz)
+    user = _session_user(request)
+    usergame, _ = UserGame.objects.get_or_create(user=user, game=game)
+    return _play(request, game, usergame, region_code)
 
+
+def _session_user(request):
     # Get user if available
     old_username = request.POST.get("user_id")
     if old_username:
@@ -111,9 +117,11 @@ def daily_bird(request, region_code=None):
         username = request.session.get("username", int(datetime.now().timestamp() * 100))
     user, _ = User.objects.get_or_create(username=username)
     request.session["username"] = user.username
+    return user
 
-    usergame, _ = UserGame.objects.get_or_create(user=user, game=game)
 
+def _play(request, game, usergame, region_code, archive=False):
+    user = usergame.user
     if request.method == "GET":
         imgs = get_bird_images(bird=game.bird, game=game)
         # Get past guesses
@@ -142,6 +150,8 @@ def daily_bird(request, region_code=None):
             "guess_count": usergame.guess_count,
             "emojis": build_results_emojis(game, guesses),
             "hint": get_hint_data(usergame.guess_count, game.bird, usergame.is_winner),
+            "archive": archive,
+            "game_date": game.date,
         }
         return render(request, "birdle/daily_bird.html", context)
 
@@ -212,6 +222,91 @@ def profile(request):
     return render(request, "birdle/profile.html", {"form": form, "saved": saved})
 
 
+def _validate_region(request, region_code):
+    if region_code not in get_regions():
+        raise Http404("Region not found")
+    request.session["region_code"] = region_code
+
+
+def _today(tz):
+    return datetime.now(timezone.utc).astimezone(tz).date()
+
+
+def _past_game_or_404(region_code, date_str, tz):
+    try:
+        game_date = date.fromisoformat(date_str)
+    except ValueError:
+        raise Http404("Invalid date")
+    if game_date >= _today(tz):
+        raise Http404("Game not yet in the archive")
+    try:
+        return Game.objects.select_related("bird", "region").get(
+            date=game_date, region__code=region_code
+        )
+    except Game.DoesNotExist:
+        raise Http404("No game for that date")
+
+
+@premium_lib.premium_required
+def archive(request, region_code):
+    _validate_region(request, region_code)
+    user_tz = get_user_timezone(request)
+    games = (
+        Game.objects.filter(region__code=region_code, date__lt=_today(user_tz))
+        .select_related("bird")
+        .order_by("-date")
+    )
+    page = Paginator(games, 30).get_page(request.GET.get("page"))
+
+    usergames = (
+        UserGame.objects.filter(user=request.user, game__in=page.object_list)
+        .select_related("game")
+        .annotate(
+            num_guesses=Count("guess"),
+            has_won=Exists(
+                Guess.objects.filter(usergame=OuterRef("pk"), bird=OuterRef("game__bird"))
+            ),
+        )
+    )
+    by_game = {usergame.game.pk: usergame for usergame in usergames}
+
+    rows = []
+    for game in page.object_list:
+        usergame = by_game.get(game.pk)
+        if usergame is None or usergame.num_guesses == 0:
+            result = "Not played"
+        elif usergame.has_won:
+            result = "Win"
+        elif usergame.num_guesses >= 6:
+            result = "Loss"
+        else:
+            result = "In progress"
+        finished = result in ("Win", "Loss")
+        rows.append(
+            {
+                "date": game.date,
+                "bird": game.bird.name if finished else "?",
+                "result": result,
+                "finished": finished,
+            }
+        )
+
+    context = {"page": page, "rows": rows, "region_code": region_code}
+    return render(request, "birdle/archive.html", context)
+
+
+@premium_lib.premium_required
+def archive_game(request, region_code, date):
+    _validate_region(request, region_code)
+    user_tz = get_user_timezone(request)
+    game = _past_game_or_404(region_code, date, user_tz)
+    user = _session_user(request)
+    usergame, _ = UserGame.objects.get_or_create(
+        user=user, game=game, defaults={"is_archive": True}
+    )
+    return _play(request, game, usergame, region_code, archive=True)
+
+
 def stats(request, region_code=None):
     # Redirect to regional URL if no region code provided
     if not region_code:
@@ -230,7 +325,9 @@ def stats(request, region_code=None):
     # Retrieve the user's guess history from the database
     if username and stats is None:
         usergames = (
-            UserGame.objects.filter(user__username=username, game__region__code=region_code)
+            UserGame.objects.filter(
+                user__username=username, game__region__code=region_code, is_archive=False
+            )
             .select_related("game__bird")
             .annotate(
                 num_guesses=Count("guess"),

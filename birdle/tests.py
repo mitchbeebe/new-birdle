@@ -9,7 +9,7 @@ from django.http import HttpResponse
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone as django_timezone
 
-from .models import Bird, BirdRegion, Game, Guess, Membership, Region, UserGame
+from .models import Bird, BirdRegion, Game, Guess, Image, Membership, Region, UserGame
 from .premium import premium_required
 from .signals import merge_anonymous_history
 from .views import random_bird
@@ -475,3 +475,107 @@ class PremiumPagesTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get("/premium/success/")
         self.assertContains(response, "Go to Premium")
+
+
+@plain_static_storage
+class ArchiveTests(TestCase):
+    def setUp(self):
+        self.region, _ = Region.objects.get_or_create(code="world", defaults={"name": "World"})
+        self.user = User.objects.create_user("alice", "alice@example.com", "s3cret-pass")
+        # The views resolve "today" from the timezone cookie; pin it so the test date matches.
+        self.client.cookies["timezone"] = "UTC"
+        self.today = datetime.now(timezone.utc).date()
+        self.games = {}
+        for days_ago in (0, 1, 2):
+            day = self.today - timedelta(days=days_ago)
+            bird = make_bird(f"bird-{days_ago}")
+            for i in range(2):
+                Image.objects.create(
+                    url=f"https://example.com/{bird.name}/{i}", label=str(i), bird=bird
+                )
+            self.games[days_ago] = Game.objects.create(date=day, bird=bird, region=self.region)
+        self.yesterday_url = f"/world/archive/{self.games[1].date.isoformat()}/"
+
+    def login(self, premium=True):
+        if premium:
+            Membership.objects.create(
+                user=self.user, comp_until=django_timezone.now() + timedelta(days=1)
+            )
+        self.client.force_login(self.user)
+        session = self.client.session
+        session["username"] = self.user.username
+        session.save()
+
+    def test_non_premium_redirected_to_premium_page(self):
+        self.login(premium=False)
+        for url in ["/world/archive/", self.yesterday_url]:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response["Location"], "/premium/")
+
+    def test_anonymous_redirected_to_login(self):
+        for url in ["/world/archive/", self.yesterday_url]:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 302)
+                self.assertTrue(response["Location"].startswith("/accounts/login/"))
+
+    def test_list_shows_past_games_newest_first(self):
+        self.login()
+        response = self.client.get("/world/archive/")
+        self.assertEqual(response.status_code, 200)
+        dates = [row["date"] for row in response.context["rows"]]
+        self.assertEqual(dates, [self.games[1].date, self.games[2].date])
+
+    def test_list_hides_bird_name_until_finished(self):
+        self.login()
+        usergame = UserGame.objects.create(user=self.user, game=self.games[2], is_archive=True)
+        Guess.objects.create(usergame=usergame, bird=self.games[2].bird)
+        rows = self.client.get("/world/archive/").context["rows"]
+        self.assertEqual(rows[0]["bird"], "?")
+        self.assertEqual(rows[0]["result"], "Not played")
+        self.assertEqual(rows[1]["bird"], self.games[2].bird.name)
+        self.assertEqual(rows[1]["result"], "Win")
+
+    def test_play_past_game_creates_archive_usergame_and_records_guess(self):
+        self.login()
+        response = self.client.get(self.yesterday_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Back to archive")
+        usergame = UserGame.objects.get(user=self.user, game=self.games[1])
+        self.assertTrue(usergame.is_archive)
+
+        response = self.client.post(
+            self.yesterday_url,
+            {"guess-input": self.games[1].bird.name, "game_id": self.games[1].pk},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["is_winner"])
+        self.assertEqual(usergame.guess_count, 1)
+        self.assertIn(str(self.games[1].date), response.json()["emojis"])
+
+    def test_bad_dates_404(self):
+        self.login()
+        for day in [self.today.isoformat(), (self.today - timedelta(days=5)).isoformat(), "nope"]:
+            with self.subTest(day=day):
+                self.assertEqual(self.client.get(f"/world/archive/{day}/").status_code, 404)
+
+    def test_existing_daily_usergame_is_reused(self):
+        self.login()
+        existing = UserGame.objects.create(user=self.user, game=self.games[1])
+        self.client.get(self.yesterday_url)
+        usergames = UserGame.objects.filter(user=self.user, game=self.games[1])
+        self.assertEqual(usergames.count(), 1)
+        self.assertEqual(usergames[0].pk, existing.pk)
+        self.assertFalse(usergames[0].is_archive)
+
+    def test_stats_ignore_archive_games(self):
+        self.login()
+        self.client.post(
+            self.yesterday_url,
+            {"guess-input": self.games[1].bird.name, "game_id": self.games[1].pk},
+        )
+        response = self.client.get("/world/stats/")
+        self.assertEqual(response.context["games_won"], 0)
+        self.assertEqual(response.context["games_played"], 0)

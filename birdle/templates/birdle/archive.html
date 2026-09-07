@@ -1,0 +1,51 @@
+<!-- archive.html -->
+
+{% extends 'birdle/base.html' %}
+
+{% block content %}
+<div class="container pt-2">
+  <div class="col-12 col-lg-6 mx-auto">
+    <h3 class="text-center">Archive ({{ region_code|region_name }})</h3>
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Bird</th>
+          <th>Result</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.date|date:"Y-m-d" }}</td>
+          <td>{{ row.bird }}</td>
+          <td>{{ row.result }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm {% if row.finished %}btn-outline-secondary{% else %}btn-primary{% endif %}"
+               href="{% url 'archive_game' region_code row.date|date:'Y-m-d' %}">
+              {% if row.finished %}View{% else %}Play{% endif %}
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center">No past games yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if page.has_other_pages %}
+    <nav aria-label="Archive pages">
+      <ul class="pagination justify-content-center">
+        <li class="page-item {% if not page.has_previous %}disabled{% endif %}">
+          <a class="page-link" href="{% if page.has_previous %}?page={{ page.previous_page_number }}{% else %}#{% endif %}">Newer</a>
+        </li>
+        <li class="page-item disabled"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>
+        <li class="page-item {% if not page.has_next %}disabled{% endif %}">
+          <a class="page-link" href="{% if page.has_next %}?page={{ page.next_page_number }}{% else %}#{% endif %}">Older</a>
+        </li>
+      </ul>
+    </nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

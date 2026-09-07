@@ -267,7 +267,9 @@ def _render_profile(request, form=None, region_form=None, saved=False):
         "region_form": region_form,
         "ebird_enabled": settings.EBIRD_ENABLED,
     }
-    return render(request, "birdle/profile.html", context)
+    # The custom region form posts via htmx and swaps just its own section.
+    template = "birdle/_custom_region.html" if request.htmx else "birdle/profile.html"
+    return render(request, template, context)
 
 
 @login_required
@@ -304,6 +306,8 @@ def custom_region(request):
         region_form.add_error(None, str(exc))
         return _render_profile(request, region_form=region_form)
     cache.delete(_stats_cache_key(request.user.username, custom.region.code))
+    if request.htmx:
+        return _render_profile(request)
     return redirect("profile")
 
 
@@ -316,6 +320,8 @@ def custom_region_delete(request):
         custom.region.delete()
     if request.session.get("region_code") == CUSTOM_REGION_CODE:
         request.session["region_code"] = "world"
+    if request.htmx:
+        return _render_profile(request)
     return redirect("profile")
 
 

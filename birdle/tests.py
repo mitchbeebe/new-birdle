@@ -791,6 +791,29 @@ class CustomRegionTests(TestCase):
         )
         self.assertEqual(response["HX-Redirect"], "/world/stats/")
 
+    def test_htmx_post_returns_only_the_section(self):
+        self.go_premium()
+        with patch("birdle.ebird.fetch_nearby_species_codes", return_value=["amerob"]):
+            response = self.client.post(
+                "/accounts/profile/custom-region/", self.FORM, HTTP_HX_REQUEST="true"
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "1 species")
+        self.assertContains(response, 'id="custom-region"')
+        self.assertNotContains(response, NAVBAR_MARKUP)
+        with patch("birdle.ebird.fetch_nearby_species_codes", side_effect=EbirdError("down")):
+            response = self.client.post(
+                "/accounts/profile/custom-region/", self.FORM, HTTP_HX_REQUEST="true"
+            )
+        self.assertContains(response, "down")
+        self.assertNotContains(response, NAVBAR_MARKUP)
+        response = self.client.post(
+            "/accounts/profile/custom-region/delete/", HTTP_HX_REQUEST="true"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "1 species")
+        self.assertFalse(CustomRegion.objects.exists())
+
     def test_delete_removes_region_and_resets_session(self):
         self.go_premium()
         self.build(["amerob"])

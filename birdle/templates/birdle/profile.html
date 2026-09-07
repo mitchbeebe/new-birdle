@@ -30,68 +30,7 @@
     <a href="{% url 'account_reset_password' %}" class="btn btn-link">Forgot your password?</a>
     <a href="{% url 'socialaccount_connections' %}" class="btn btn-outline-secondary">Connected accounts</a>
 </div>
-<hr>
-<h5>Near me {% if not premium_member %}<span class="badge text-bg-warning">Premium</span>{% endif %}</h5>
-<p class="text-body-secondary small">Play a daily Birdle built from species reported to eBird within 50 km of you over the last 30 days. The pool is frozen when built; rebuild it any time.</p>
-{% if not premium_member %}
-<div class="alert alert-secondary py-2 small">This is a premium feature. <a href="{% url 'premium' %}">Go Premium</a> to build a region near you.</div>
-{% elif not ebird_enabled %}
-<div class="alert alert-secondary py-2 small">Custom regions aren't available yet.</div>
-{% endif %}
-{% if custom_region %}
-<div class="alert {% if custom_region.species_count < 10 %}alert-warning{% else %}alert-success{% endif %} py-2 small">
-    {{ custom_region.lat }}, {{ custom_region.lng }}: {{ custom_region.species_count }} species
-    {% if custom_region.built_at %}(built {{ custom_region.built_at|date:"M j, Y" }}){% endif %}.
-    {% if custom_region.species_count < 10 %}That's a small pool &mdash; few species have been reported nearby recently.{% endif %}
-    {% if custom_region.species_count > 0 %}<a href="/custom/">Play it</a>{% endif %}
-</div>
-{% endif %}
-<form method="post" action="{% url 'custom_region' %}" id="custom-region-form">
-    {% csrf_token %}
-    <fieldset {% if not premium_member or not ebird_enabled %}disabled{% endif %}>
-    {% for error in region_form.non_field_errors %}
-    <div class="alert alert-danger py-2 small">{{ error }}</div>
-    {% endfor %}
-    <button type="button" class="btn btn-primary w-100 mb-2" id="use-location"><i class="fas fa-location-crosshairs"></i> {% if custom_region %}Rebuild from my location{% else %}Build from my location{% endif %}</button>
-    <details {% if region_form.errors %}open{% endif %}>
-        <summary class="small text-body-secondary">Enter coordinates manually</summary>
-        <div class="row g-2 my-1">
-            <div class="col-6">
-                <label for="{{ region_form.lat.id_for_label }}" class="form-label">{{ region_form.lat.label }}</label>
-                {{ region_form.lat }}
-                {% for error in region_form.lat.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
-            <div class="col-6">
-                <label for="{{ region_form.lng.id_for_label }}" class="form-label">{{ region_form.lng.label }}</label>
-                {{ region_form.lng }}
-                {% for error in region_form.lng.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
-        </div>
-        <button type="submit" class="btn btn-outline-primary w-100">{% if custom_region %}Save &amp; rebuild pool{% else %}Build my region{% endif %}</button>
-    </details>
-    </fieldset>
-</form>
-{% if custom_region %}
-<form method="post" action="{% url 'custom_region_delete' %}" class="mt-2" onsubmit="return confirm('Delete your custom region and its game history?');">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-outline-danger w-100">Delete</button>
-</form>
-{% endif %}
-<script>
-document.getElementById("use-location").addEventListener("click", function () {
-    if (!navigator.geolocation) { alert("Geolocation isn't supported by this browser. Enter coordinates manually."); return; }
-    var button = this;
-    button.disabled = true;
-    navigator.geolocation.getCurrentPosition(function (pos) {
-        document.getElementById("{{ region_form.lat.id_for_label }}").value = pos.coords.latitude.toFixed(2);
-        document.getElementById("{{ region_form.lng.id_for_label }}").value = pos.coords.longitude.toFixed(2);
-        document.getElementById("custom-region-form").submit();
-    }, function () {
-        button.disabled = false;
-        alert("Couldn't get your location. Enter coordinates manually.");
-    });
-});
-</script>
+{% include 'birdle/_custom_region.html' %}
 <hr>
 <form method="post" action="{% url 'account_logout' %}">
     {% csrf_token %}

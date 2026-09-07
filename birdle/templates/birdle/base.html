@@ -40,8 +40,14 @@
   <nav class="navbar navbar-expand-sm bg-body-tertiary">
     <div class="container-fluid">
       {% current_region_code as nav_region_code %}
+      {% is_premium as premium_member %}
       <a class="navbar-brand mx-md-2" href="/{{nav_region_code}}/"><i class="fas fa-dove"></i> Birdle</a>
-      <ul class="navbar-nav ms-auto me-2">
+      <ul class="navbar-nav ms-auto me-2 flex-row align-items-center">
+        {% if not premium_member %}
+        <li class="nav-item me-2">
+          <a class="btn btn-warning btn-sm fw-semibold" href="{% url 'premium' %}"><i class="fas fa-star"></i> Go Premium</a>
+        </li>
+        {% endif %}
         {% if request.resolver_match.url_name not in "info,practice,practice-region-family" %}
         <li class="nav-item dropdown">
           <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
@@ -75,13 +81,7 @@
             <li class="nav-item"><a class="nav-link" href="/info/"><i class="fas fa-info-circle"></i> Info</a></li>
             <li><hr class="dropdown-divider"></li>
             {% if user.is_authenticated %}
-            <li class="nav-item"><a class="nav-link" href="{% url 'profile' %}"><i class="fas fa-user"></i> {{ user.username }}</a></li>
-            <li class="nav-item">
-              <form method="post" action="{% url 'account_logout' %}">
-                {% csrf_token %}
-                <button type="submit" class="nav-link"><i class="fas fa-sign-out-alt"></i> Log out</button>
-              </form>
-            </li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'profile' %}"><i class="fas fa-user"></i> {{ user.username }}{% if premium_member %} <i class="fas fa-star text-warning" title="Premium"></i>{% endif %}</a></li>
             {% else %}
             <li class="nav-item"><a class="nav-link" href="{% url 'account_login' %}"><i class="fas fa-sign-in-alt"></i> Log in</a></li>
             {% endif %}

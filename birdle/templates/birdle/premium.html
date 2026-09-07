@@ -1,0 +1,45 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Birdle Premium{% endblock %}
+
+{% block card_body %}
+{% if premium %}
+<div class="alert alert-success py-2 text-center"><i class="fas fa-star"></i> You're a Premium member. Thank you!</div>
+{% if membership.comp_until and not membership.status %}
+<p class="text-body-secondary">Complimentary access until {{ membership.comp_until|date:"M j, Y" }}.</p>
+{% elif membership.current_period_end %}
+<p class="text-body-secondary">
+  {% if membership.status == "trialing" %}Trial ends{% else %}Renews{% endif %}
+  {{ membership.current_period_end|date:"M j, Y" }} at $1/month.
+</p>
+{% endif %}
+{% else %}
+<p class="text-center mb-1"><span class="display-6">$1</span><span class="text-body-secondary">/month</span></p>
+<p>Support Birdle and unlock:</p>
+{% endif %}
+<ul class="mb-3">
+    <li>Play the archive of past daily birds</li>
+    <li>Detailed stats</li>
+    <li>Leaderboards</li>
+    <li>Custom regions</li>
+</ul>
+<div class="d-grid gap-2">
+    {% if not user.is_authenticated %}
+    <a href="{% url 'account_login' %}?next={% url 'premium' %}" class="btn btn-primary">Log in to subscribe</a>
+    {% elif premium and membership.stripe_customer_id %}
+    <form method="post" action="{% url 'premium_portal' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-secondary w-100">Manage subscription</button>
+    </form>
+    {% elif not premium %}
+    {% if stripe_enabled %}
+    <form method="post" action="{% url 'premium_checkout' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-star"></i> Subscribe for $1/month</button>
+    </form>
+    {% else %}
+    <p class="text-body-secondary text-center mb-0">Subscriptions aren't available yet.</p>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

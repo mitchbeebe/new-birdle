@@ -34,6 +34,11 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/profile/", views.profile, name="profile"),
     path("accounts/", include("allauth.urls")),
+    path("premium/", views.premium, name="premium"),
+    path("premium/checkout/", views.premium_checkout, name="premium_checkout"),
+    path("premium/success/", views.premium_success, name="premium_success"),
+    path("premium/portal/", views.premium_portal, name="premium_portal"),
+    path("premium/webhook/", views.stripe_webhook, name="stripe_webhook"),
     # Regional paths (with region code in URL) - after specific paths
     path("<str:region_code>/", views.daily_bird, name="daily_bird_region"),
     path("<str:region_code>/stats/", views.stats, name="stats_region"),

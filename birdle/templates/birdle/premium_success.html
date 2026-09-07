@@ -1,0 +1,9 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Thanks!{% endblock %}
+
+{% block card_body %}
+<p>Your subscription is being activated. This usually takes a few seconds.</p>
+<p class="text-body-secondary">If Premium doesn't show up yet, refresh the page in a moment.</p>
+<a href="{% url 'premium' %}" class="btn btn-primary w-100">Go to Premium</a>
+{% endblock %}

@@ -6,7 +6,9 @@
 {% if saved %}
 <div class="alert alert-success py-2">Username updated.</div>
 {% endif %}
-<p class="text-body-secondary mb-3">Email: {{ user.email|default:"none" }}</p>
+<p class="text-body-secondary mb-1">Email: {{ user.email|default:"none" }}</p>
+{% is_premium as premium_member %}
+<p class="text-body-secondary mb-3">Membership: {% if premium_member %}Premium{% else %}Free{% endif %} &middot; <a href="{% url 'premium' %}">{% if premium_member %}Manage{% else %}Upgrade{% endif %}</a></p>
 <form method="post" action="{% url 'profile' %}">
     {% csrf_token %}
     <div class="mb-3">
@@ -27,4 +29,9 @@
     {% endif %}
     <a href="{% url 'account_reset_password' %}" class="btn btn-link">Forgot your password?</a>
 </div>
+<hr>
+<form method="post" action="{% url 'account_logout' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-outline-danger w-100"><i class="fas fa-sign-out-alt"></i> Log out</button>
+</form>
 {% endblock %}

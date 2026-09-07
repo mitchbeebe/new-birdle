@@ -29,4 +29,9 @@
     {% endif %}
     <a href="{% url 'account_reset_password' %}" class="btn btn-link">Forgot your password?</a>
 </div>
+<hr>
+<form method="post" action="{% url 'account_logout' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-outline-danger w-100"><i class="fas fa-sign-out-alt"></i> Log out</button>
+</form>
 {% endblock %}

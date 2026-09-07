@@ -2,6 +2,7 @@ import random
 from typing import TYPE_CHECKING
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 
 class Bird(models.Model):
@@ -133,3 +134,24 @@ class Image(models.Model):
     label = models.CharField(max_length=100)
     photographer = models.CharField(null=True, max_length=256)
     bird = models.ForeignKey(Bird, on_delete=models.CASCADE)
+
+
+class Membership(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    stripe_customer_id = models.CharField(max_length=255, blank=True)
+    stripe_subscription_id = models.CharField(max_length=255, blank=True)
+    status = models.CharField(max_length=32, blank=True)  # raw Stripe subscription status
+    current_period_end = models.DateTimeField(null=True, blank=True)
+    comp_until = models.DateTimeField(null=True, blank=True)  # manual grant, set in admin
+
+    def __str__(self):
+        return f"{self.user}: {self.status or 'none'}"
+
+    @property
+    def is_active(self) -> bool:
+        now = timezone.now()
+        stripe_ok = self.status in {"active", "trialing"} and (
+            self.current_period_end is None or self.current_period_end > now
+        )
+        comp_ok = self.comp_until is not None and self.comp_until > now
+        return stripe_ok or comp_ok

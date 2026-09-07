@@ -1,15 +1,16 @@
 """Premium-only detailed stats and awards for the stats page.
 
-Everything is derived from the user's existing ``UserGame``/``Guess`` rows. The
-region-scoped panels work off the annotated ``usergames`` the stats view already
-loaded; the cross-region panels (life list, World Traveler) run their own query.
+Everything is derived from the user's existing ``UserGame``/``Guess`` rows. Archive
+plays (``UserGame.is_archive``) count toward identification-based panels (family
+accuracy, hardest birds, life list, Catch 'Em All) but not toward the day-based
+awards (World Traveler, streak milestones).
 """
 
 from collections import Counter, defaultdict
 
-from django.db.models import Count, F
+from django.db.models import Count, Exists, F, OuterRef
 
-from .models import Bird, Guess
+from .models import Bird, Guess, UserGame
 
 MIN_FAMILY_GAMES = 3
 STREAK_MILESTONES = (7, 30, 100)
@@ -69,7 +70,7 @@ def guess_heatmap(guessed_ats, tz):
 
 
 def _winning_guesses(user):
-    """One row per (species, date, region) the user has correctly identified, any region."""
+    """One row per (species, date, region, archive flag) the user has correctly identified."""
     return (
         Guess.objects.filter(usergame__user=user, bird=F("usergame__game__bird"))
         .values_list(
@@ -77,6 +78,7 @@ def _winning_guesses(user):
             "bird__family",
             "usergame__game__date",
             "usergame__game__region__code",
+            "usergame__is_archive",
         )
         .distinct()
     )
@@ -85,7 +87,7 @@ def _winning_guesses(user):
 def life_list(wins):
     """Distinct species identified across all regions, grouped by family."""
     families = defaultdict(set)
-    for name, family, _date, _region in wins:
+    for name, family, _date, _region, _archive in wins:
         families[family].add(name)
     groups = [
         {"family": family, "species": sorted(species)}
@@ -95,10 +97,11 @@ def life_list(wins):
 
 
 def world_traveler(wins, fixed_regions):
-    """Earned when every fixed region's game was won on the same day (custom regions ignored)."""
+    """Earned when every fixed region's game was won on its day; custom regions and archive
+    plays don't count."""
     regions_by_date = defaultdict(set)
-    for _name, _family, day, region in wins:
-        if region in fixed_regions:
+    for _name, _family, day, region, archive in wins:
+        if region in fixed_regions and not archive:
             regions_by_date[day].add(region)
     days = sorted(day for day, regions in regions_by_date.items() if regions >= fixed_regions)
     return {"earned": bool(days), "count": len(days), "latest": days[-1] if days else None}
@@ -189,11 +192,21 @@ def awards(families, catch, traveler, best_streak):
     return tiles
 
 
-def detailed_stats(user, region_code, tz, usergames, best_streak, fixed_regions):
-    """Build the premium block of the stats context. Three queries beyond ``usergames``."""
-    # TODO(MIT-5): once UserGame.is_archive lands, exclude archive rows from the
-    # streak-based awards here but keep them in the life list.
-    usergames = list(usergames)
+def detailed_stats(user, region_code, tz, best_streak, fixed_regions):
+    """Build the premium block of the stats context in four queries.
+
+    ``best_streak`` comes from the stats view, which already excludes archive plays.
+    """
+    usergames = list(
+        UserGame.objects.filter(user=user, game__region__code=region_code)
+        .select_related("game__bird")
+        .annotate(
+            num_guesses=Count("guess"),
+            has_won=Exists(
+                Guess.objects.filter(usergame=OuterRef("pk"), bird=OuterRef("game__bird"))
+            ),
+        )
+    )
     guessed_ats = Guess.objects.filter(
         usergame__user=user, usergame__game__region__code=region_code
     ).values_list("guessed_at", flat=True)

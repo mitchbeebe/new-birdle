@@ -592,7 +592,7 @@ def stats(request, region_code=None):
         }
         if premium:
             stats["detailed"] = detailed_stats(
-                request.user, region_code, user_tz, usergames, best_streak, get_regions()
+                request.user, region_code, user_tz, best_streak, get_regions()
             )
         cache.set(cache_key, stats, timeout=60 * 10)
     elif not username:

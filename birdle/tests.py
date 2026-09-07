@@ -1070,6 +1070,7 @@ class AccoladeTests(TestCase):
         self.world, _ = Region.objects.get_or_create(code="world", defaults={"name": "World"})
         self.user = User.objects.create_user("alice", "alice@example.com", "s3cret-pass")
         self.tz = pytz.timezone("US/Eastern")
+        cache.clear()  # stats are cached by username and the cache outlives each test
 
     def bird(self, name, family="family"):
         bird = make_bird(name)
@@ -1077,11 +1078,11 @@ class AccoladeTests(TestCase):
         bird.save()
         return bird
 
-    def play(self, bird, day, won, guesses=1, region=None, user=None):
+    def play(self, bird, day, won, guesses=1, region=None, user=None, archive=False):
         game, _ = Game.objects.get_or_create(
             date=day, region=region or self.world, defaults={"bird": bird}
         )
-        usergame = UserGame.objects.create(user=user or self.user, game=game)
+        usergame = UserGame.objects.create(user=user or self.user, game=game, is_archive=archive)
         wrong = self.bird(f"wrong-{bird.name}-{day}-{region and region.code}")
         for _ in range(guesses - 1 if won else guesses):
             Guess.objects.create(usergame=usergame, bird=wrong)
@@ -1163,6 +1164,27 @@ class AccoladeTests(TestCase):
         wins = list(accolades._winning_guesses(self.user))
         result = accolades.world_traveler(wins, fixed)
         self.assertEqual(result, {"earned": True, "count": 1, "latest": date(2024, 1, 2)})
+
+    def test_archive_plays_count_for_stats_but_not_world_traveler(self):
+        eu = Region.objects.create(code="eu", name="Europe")
+        BirdRegion.objects.create(bird=self.bird("owl", "Owls"), region=self.world)
+        self.play(Bird.objects.get(name="owl"), date(2024, 1, 1), won=True, archive=True)
+        self.play(self.bird("duck", "Ducks"), date(2024, 1, 2), won=False, guesses=6, archive=True)
+        self.play(self.bird("gull", "Gulls"), date(2024, 1, 1), won=True, region=eu)
+        Membership.objects.create(
+            user=self.user, comp_until=django_timezone.now() + timedelta(days=30)
+        )
+
+        detailed = self.stats_page().context["detailed"]
+        self.assertEqual([f["family"] for f in detailed["families"]], ["Owls", "Ducks"])
+        self.assertEqual(detailed["hardest"][0]["bird"], "duck")
+        self.assertEqual(detailed["life_list"]["count"], 2)
+        by_title = {t["title"]: t for t in detailed["awards"]}
+        self.assertTrue(by_title["Catch 'Em All"]["earned"])
+        self.assertFalse(by_title["World Traveler"]["earned"])
+
+        wins = list(accolades._winning_guesses(self.user))
+        self.assertFalse(accolades.world_traveler(wins, {"world", "eu"})["earned"])
 
     def test_catch_em_all_progress_and_earned(self):
         owls = [self.bird(f"owl{i}", "Owls") for i in range(2)]

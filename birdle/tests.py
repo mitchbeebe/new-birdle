@@ -677,7 +677,7 @@ class CustomRegionTests(TestCase):
         self.build(["amerob"])
         self.assertEqual(self.pool(), {self.birds[0].id})
         with patch("birdle.ebird.fetch_nearby_species_codes", return_value=["norcar"]):
-            self.client.post("/accounts/profile/custom-region/", {"rebuild": "1"})
+            self.client.post("/accounts/profile/custom-region/", self.FORM)
         self.assertEqual(self.pool(), {self.birds[1].id})
         self.assertEqual(CustomRegion.objects.filter(user=self.user).count(), 1)
         self.assertEqual(Region.objects.filter(code__startswith="custom-").count(), 1)

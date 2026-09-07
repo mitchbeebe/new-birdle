@@ -288,19 +288,16 @@ def profile(request):
 def custom_region(request):
     """Create/update the user's custom region and (re)build its species pool."""
     custom = CustomRegion.objects.filter(user=request.user).first()
-    if request.POST.get("rebuild") and custom is not None:
-        region_form = CustomRegionForm(instance=custom)
-    else:
-        region_form = CustomRegionForm(request.POST, instance=custom)
-        if not region_form.is_valid():
-            return _render_profile(request, region_form=region_form)
-        custom = region_form.save(commit=False)
-        if custom.region_id is None:
-            custom.user = request.user
-            custom.region = Region.objects.create(
-                code=custom_region_db_code(request.user), name=CUSTOM_REGION_NAME
-            )
-        custom.save()
+    region_form = CustomRegionForm(request.POST, instance=custom)
+    if not region_form.is_valid():
+        return _render_profile(request, region_form=region_form)
+    custom = region_form.save(commit=False)
+    if custom.region_id is None:
+        custom.user = request.user
+        custom.region = Region.objects.create(
+            code=custom_region_db_code(request.user), name=CUSTOM_REGION_NAME
+        )
+    custom.save()
     try:
         ebird.build_pool(custom)
     except ebird.EbirdError as exc:

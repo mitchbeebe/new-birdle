@@ -66,17 +66,10 @@
     <button type="submit" class="btn btn-primary w-100" {% if not ebird_enabled %}disabled{% endif %}>{% if custom_region %}Save &amp; rebuild pool{% else %}Build my region{% endif %}</button>
 </form>
 {% if custom_region %}
-<div class="d-flex gap-2 mt-2">
-    <form method="post" action="{% url 'custom_region' %}" class="flex-fill">
-        {% csrf_token %}
-        <input type="hidden" name="rebuild" value="1">
-        <button type="submit" class="btn btn-outline-secondary w-100" {% if not ebird_enabled %}disabled{% endif %}>Rebuild pool</button>
-    </form>
-    <form method="post" action="{% url 'custom_region_delete' %}" class="flex-fill" onsubmit="return confirm('Delete your custom region and its game history?');">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-outline-danger w-100">Delete</button>
-    </form>
-</div>
+<form method="post" action="{% url 'custom_region_delete' %}" class="mt-2" onsubmit="return confirm('Delete your custom region and its game history?');">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-outline-danger w-100">Delete</button>
+</form>
 {% endif %}
 <script>
 document.getElementById("use-location").addEventListener("click", function () {

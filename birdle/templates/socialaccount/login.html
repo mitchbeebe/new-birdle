@@ -1,0 +1,11 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}{% if process == "connect" %}Connect {{ provider.name }}{% else %}Continue with {{ provider.name }}{% endif %}{% endblock %}
+
+{% block card_body %}
+<p>{% if process == "connect" %}You are about to connect a {{ provider.name }} account.{% else %}You are about to sign in with your {{ provider.name }} account.{% endif %}</p>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary w-100">Continue</button>
+</form>
+{% endblock %}

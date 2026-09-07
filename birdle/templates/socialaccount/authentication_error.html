@@ -1,0 +1,7 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Login Failed{% endblock %}
+
+{% block card_body %}
+<p class="mb-0">Something went wrong while logging in with your third-party account. <a href="{% url 'account_login' %}">Back to log in</a>.</p>
+{% endblock %}

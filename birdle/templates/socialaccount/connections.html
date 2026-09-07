@@ -1,0 +1,33 @@
+{% extends 'account/base_card.html' %}
+{% load socialaccount %}
+
+{% block card_title %}Connected Accounts{% endblock %}
+
+{% block card_body %}
+{% if form.accounts %}
+<p>You can log in with any of these third-party accounts:</p>
+<form method="post" action="{% url 'socialaccount_connections' %}">
+    {% csrf_token %}
+    {% for acc in form.fields.account.choices %}
+    {% with account=acc.0.instance.get_provider_account %}
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="radio" name="account" id="id_account_{{ account.account.pk }}" value="{{ account.account.pk }}">
+        <label class="form-check-label" for="id_account_{{ account.account.pk }}">{{ account }} <span class="badge text-bg-secondary ms-1">{{ account.get_brand.name }}</span></label>
+    </div>
+    {% endwith %}
+    {% endfor %}
+    {% for error in form.non_field_errors %}
+    <div class="text-danger small mb-2">{{ error }}</div>
+    {% endfor %}
+    <button type="submit" class="btn btn-outline-danger w-100">Remove selected</button>
+</form>
+{% else %}
+<p>You have no third-party accounts connected.</p>
+{% endif %}
+<hr>
+{% google_login_enabled as show_google_login %}
+{% if show_google_login %}
+<a href="{% provider_login_url 'google' process='connect' %}" class="btn btn-outline-primary w-100"><i class="fa-brands fa-google"></i> Connect Google</a>
+{% endif %}
+<p class="text-center mt-3 mb-0"><a href="{% url 'profile' %}">Back to profile</a></p>
+{% endblock %}

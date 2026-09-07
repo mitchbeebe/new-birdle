@@ -90,7 +90,9 @@
       </div>
     </div>
   </nav>
+  {% block main %}
   {% block content %}
+  {% endblock %}
   {% endblock %}
   <script>
     // Store user's timezone in a cookie for server-side use

@@ -1,11 +1,11 @@
+{# Fallback for any allauth page without an explicit override: site chrome + card. #}
 {% extends 'birdle/base.html' %}
 
 {% block main %}
 <div class="container pt-3" style="max-width: 28rem;">
     <div class="card">
         <div class="card-body">
-            <h1 class="h4 card-title text-center mb-3">{% block card_title %}{% endblock %}</h1>
-            {% block card_body %}{% endblock %}
+            {% block content %}{% endblock %}
         </div>
     </div>
 </div>

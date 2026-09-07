@@ -2,22 +2,6 @@
 <form method="post" action="{{ action|default:'' }}">
     {% csrf_token %}
     {{ redirect_field }}
-    {% for field in form.visible_fields %}
-    <div class="mb-3">
-        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-        {% if field.field.widget.input_type == "checkbox" %}
-        <div class="form-check">{{ field|add_class:"form-check-input" }}</div>
-        {% else %}
-        {{ field|add_class:"form-control" }}
-        {% endif %}
-        {% for error in field.errors %}
-        <div class="text-danger small">{{ error }}</div>
-        {% endfor %}
-    </div>
-    {% endfor %}
-    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
-    {% for error in form.non_field_errors %}
-    <div class="text-danger small mb-2">{{ error }}</div>
-    {% endfor %}
+    {% include 'account/_fields.html' %}
     <button type="submit" class="btn btn-primary w-100">{{ submit_label }}</button>
 </form>

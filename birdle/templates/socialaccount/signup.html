@@ -1,0 +1,9 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Finish Signing Up{% endblock %}
+
+{% block card_body %}
+<p>You're signing in with your {{ account.get_provider.name }} account. Pick a username to finish creating your Birdle account.</p>
+{% url 'socialaccount_signup' as action_url %}
+{% include 'account/_form.html' with submit_label="Sign Up" action=action_url %}
+{% endblock %}

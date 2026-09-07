@@ -1,5 +1,7 @@
 from datetime import date, timedelta
 
+from allauth.socialaccount.adapter import get_adapter as get_socialaccount_adapter
+from allauth.socialaccount.models import SocialAccount, SocialLogin
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase, override_settings
 
@@ -190,9 +192,54 @@ class ProfileTests(TestCase):
         self.assertEqual(self.user.username, "alice")
 
 
+NAVBAR_MARKUP = '<a class="navbar-brand'
+
+GOOGLE_TEST_PROVIDER = {
+    "google": {"APPS": [{"client_id": "test-client-id", "secret": "test-secret", "key": ""}]}
+}
+
+
 @plain_static_storage
 class AccountPagesSmokeTests(TestCase):
-    def test_pages_render(self):
-        for url in ["/accounts/login/", "/accounts/signup/", "/accounts/password/reset/"]:
+    def assert_styled(self, url, status_code=200):
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status_code)
+        self.assertContains(response, NAVBAR_MARKUP, status_code=status_code)
+        return response
+
+    def test_account_pages_render_with_site_chrome(self):
+        for url in [
+            "/accounts/login/",
+            "/accounts/signup/",
+            "/accounts/password/reset/",
+            "/accounts/login/code/",
+        ]:
             with self.subTest(url=url):
-                self.assertEqual(self.client.get(url).status_code, 200)
+                self.assert_styled(url)
+
+    def test_socialaccount_error_pages_render_with_site_chrome(self):
+        self.assert_styled("/accounts/3rdparty/login/cancelled/")
+        # allauth serves the authentication error page with a 401
+        self.assert_styled("/accounts/3rdparty/login/error/", status_code=401)
+
+    @override_settings(SOCIALACCOUNT_PROVIDERS=GOOGLE_TEST_PROVIDER)
+    def test_socialaccount_signup_renders_with_site_chrome(self):
+        provider = get_socialaccount_adapter().get_provider(RequestFactory().get("/"), "google")
+        sociallogin = SocialLogin(
+            user=User(email="carol@example.com"),
+            account=SocialAccount(provider="google", uid="123"),
+            provider=provider,
+        )
+        session = self.client.session
+        session["socialaccount_sociallogin"] = sociallogin.serialize()
+        session.save()
+
+        response = self.assert_styled("/accounts/3rdparty/signup/")
+        self.assertContains(response, "Finish Signing Up")
+        self.assertContains(response, 'class="form-control"')
+
+    def test_fallback_layout_wraps_unoverridden_allauth_page(self):
+        user = User.objects.create_user("alice", "alice@example.com", "s3cret-pass")
+        self.client.force_login(user)
+        response = self.assert_styled("/accounts/email/")
+        self.assertContains(response, 'class="card-body"')

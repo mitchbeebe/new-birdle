@@ -1,0 +1,24 @@
+{% load allauth %}
+<div class="mb-3">
+    {% if attrs.type == "checkbox" or attrs.type == "radio" %}
+    <div class="form-check">
+        <input class="form-check-input" type="{{ attrs.type }}"
+               {% if attrs.required %}required{% endif %} {% if attrs.disabled %}disabled{% endif %}
+               {% if attrs.checked %}checked{% endif %}
+               {% if attrs.name %}name="{{ attrs.name }}"{% endif %} {% if attrs.id %}id="{{ attrs.id }}"{% endif %}
+               {% if attrs.value is not None %}value="{{ attrs.value }}"{% endif %}>
+        <label class="form-check-label" for="{{ attrs.id }}">{% slot label %}{% endslot %}</label>
+    </div>
+    {% else %}
+    <label class="form-label" for="{{ attrs.id }}">{% slot label %}{% endslot %}</label>
+    <input class="form-control" type="{{ attrs.type }}"
+           {% if attrs.required %}required{% endif %} {% if attrs.disabled %}disabled{% endif %}
+           {% if attrs.readonly %}readonly{% endif %}
+           {% if attrs.name %}name="{{ attrs.name }}"{% endif %} {% if attrs.id %}id="{{ attrs.id }}"{% endif %}
+           {% if attrs.placeholder %}placeholder="{{ attrs.placeholder }}"{% endif %}
+           {% if attrs.autocomplete %}autocomplete="{{ attrs.autocomplete }}"{% endif %}
+           {% if attrs.value is not None %}value="{{ attrs.value }}"{% endif %}>
+    {% endif %}
+    {% if attrs.errors %}<div class="text-danger small">{{ attrs.errors }}</div>{% endif %}
+    {% if slots.help_text %}<div class="form-text">{% slot help_text %}{% endslot %}</div>{% endif %}
+</div>

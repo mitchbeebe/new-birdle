@@ -1,0 +1,7 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Login Cancelled{% endblock %}
+
+{% block card_body %}
+<p class="mb-0">You cancelled logging in with a third-party account. If this was a mistake, <a href="{% url 'account_login' %}">try again</a>.</p>
+{% endblock %}

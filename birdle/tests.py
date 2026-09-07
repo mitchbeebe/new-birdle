@@ -781,8 +781,8 @@ class FetchNearbySpeciesCodesTests(TestCase):
         get.assert_called_once()
         self.assertEqual(get.call_args.kwargs["headers"], {"X-eBirdApiToken": "test-key"})
         params = get.call_args.kwargs["params"]
-        self.assertEqual(params["dist"], 25)
-        self.assertEqual(params["back"], 14)
+        self.assertEqual(params["dist"], 50)
+        self.assertEqual(params["back"], 30)
         self.assertEqual(params["includeProvisional"], "false")
 
     @override_settings(EBIRD_API_KEY="test-key", EBIRD_ENABLED=True)

@@ -10,9 +10,9 @@ from .models import Bird, BirdRegion
 
 NEARBY_URL = "https://api.ebird.org/v2/data/obs/geo/recent"
 CACHE_TIMEOUT = 60 * 60 * 24
-# Fixed search window: 25 km radius, 14 days back, reviewed sightings only.
-DIST_KM = 25
-DAYS_BACK = 14
+# Fixed search window: 50 km radius, 30 days back, reviewed sightings only.
+DIST_KM = 50
+DAYS_BACK = 30
 
 
 class EbirdError(Exception):

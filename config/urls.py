@@ -14,7 +14,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-from django.urls import path
+from django.urls import include, path
 from django.contrib import admin
 from birdle import views
 
@@ -32,6 +32,8 @@ urlpatterns = [
     path("api/birds/", views.bird_autocomplete, name="bird_autocomplete"),
     path("region", views.region),
     path("admin/", admin.site.urls),
+    path("accounts/profile/", views.profile, name="profile"),
+    path("accounts/", include("allauth.urls")),
     # Regional paths (with region code in URL) - after specific paths
     path("<str:region_code>/", views.daily_bird, name="daily_bird_region"),
     path("<str:region_code>/stats/", views.stats, name="stats_region"),

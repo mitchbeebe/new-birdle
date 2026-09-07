@@ -115,19 +115,20 @@ def todays_game(region_code="world", tz=None):
         # Assumes an already created game is valid
         game = Game.objects.get(date=today, region=region)
     except Game.DoesNotExist:
-        # Randomly select a bird
-        bird = random_bird(region_code)
-        imgs = get_bird_images(bird)
+        game = _create_game(region, today)
+    return game
 
-        # Create game if at least two images
+
+def _create_game(region, game_date):
+    """Draw a bird with at least two images and create the game for ``game_date``."""
+    while True:
+        bird = random_bird(region.code)
+        imgs = get_bird_images(bird)
         if len(imgs) >= 2:
             game, _ = Game.objects.update_or_create(
-                date=today, region=region, defaults={"bird": bird}
+                date=game_date, region=region, defaults={"bird": bird}
             )
-        else:
-            # Redraw bird if fewer than 2 images
-            return todays_game(region_code, tz)
-    return game
+            return game
 
 
 def _stats_cache_key(username, region_code):
@@ -338,7 +339,11 @@ def _today(tz):
     return datetime.now(timezone.utc).astimezone(tz).date()
 
 
-def _past_game_or_404(region_code, date_str, tz):
+def _past_game_or_404(region_code, date_str, tz, create_from=None):
+    """Look up a past game; for a near-me region, create it on demand back to ``create_from``.
+
+    A near-me region has a single player, so days they didn't open have no Game row yet.
+    """
     try:
         game_date = date.fromisoformat(date_str)
     except ValueError:
@@ -350,7 +355,19 @@ def _past_game_or_404(region_code, date_str, tz):
             date=game_date, region__code=region_code
         )
     except Game.DoesNotExist:
-        raise Http404("No game for that date")
+        if create_from is None or game_date < create_from:
+            raise Http404("No game for that date")
+        return _create_game(Region.objects.get(code=region_code), game_date)
+
+
+def _custom_region_start(request, db_code, tz):
+    """Date a near-me region's pool was built (in the user's tz), or None for fixed regions."""
+    if not db_code.startswith(f"{CUSTOM_REGION_CODE}-"):
+        return None
+    custom = CustomRegion.objects.filter(user=request.user).first()
+    if custom is None or custom.built_at is None:
+        return None
+    return custom.built_at.astimezone(tz).date()
 
 
 def _month_param(value, today):
@@ -374,7 +391,11 @@ def archive(request, region_code):
     today = _today(user_tz)
     month = _month_param(request.GET.get("month"), today)
     first_game = Game.objects.filter(region__code=db_code).order_by("date").first()
-    first_month = first_game.date.replace(day=1) if first_game else today.replace(day=1)
+    first_date = first_game.date if first_game else today
+    playable_from = _custom_region_start(request, db_code, user_tz)
+    if playable_from is not None:
+        first_date = min(first_date, playable_from)
+    first_month = first_date.replace(day=1)
     month = min(max(month, first_month), today.replace(day=1))
 
     games = Game.objects.filter(
@@ -401,6 +422,9 @@ def archive(request, region_code):
         game_date = month.replace(day=day)
         game = by_date.get(game_date)
         if game is None:
+            # Near-me days without a game yet are still playable; created on click.
+            if playable_from is not None and playable_from <= game_date < today:
+                return {"day": day, "date": game_date, "result": "Not played", "finished": False}
             return {"day": day}
         usergame = by_game.get(game.pk)
         if usergame is None or usergame.num_guesses == 0:
@@ -440,7 +464,9 @@ def archive_game(request, region_code, date):
     if isinstance(db_code, HttpResponse):
         return db_code
     user_tz = get_user_timezone(request)
-    game = _past_game_or_404(db_code, date, user_tz)
+    game = _past_game_or_404(
+        db_code, date, user_tz, create_from=_custom_region_start(request, db_code, user_tz)
+    )
     user = _session_user(request)
     usergame, _ = UserGame.objects.get_or_create(
         user=user, game=game, defaults={"is_archive": True}

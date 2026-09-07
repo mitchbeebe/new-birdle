@@ -764,6 +764,34 @@ class CustomRegionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Near me")
 
+    def test_archive_creates_missed_days_on_demand(self):
+        self.go_premium()
+        self.build(["amerob", "norcar"])
+        self.client.cookies["timezone"] = "UTC"
+        custom = CustomRegion.objects.get(user=self.user)
+        custom.built_at = django_timezone.now() - timedelta(days=3)
+        custom.save(update_fields=["built_at"])
+        today = datetime.now(timezone.utc).date()
+        yesterday = (today - timedelta(days=1)).isoformat()
+        long_ago = (today - timedelta(days=10)).isoformat()
+
+        # Calendar offers the missed days as playable even though no Game rows exist yet.
+        self.assertEqual(Game.objects.filter(region=custom.region).count(), 0)
+        response = self.client.get(f"/near-me/archive/?month={today.strftime('%Y-%m')}")
+        self.assertContains(response, f"/near-me/archive/{yesterday}/")
+        self.assertNotContains(response, f"/near-me/archive/{long_ago}/")
+
+        response = self.client.get(f"/near-me/archive/{yesterday}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Game.objects.filter(region=custom.region).count(), 1)
+        # Opening it again reuses the same game.
+        self.client.get(f"/near-me/archive/{yesterday}/")
+        self.assertEqual(Game.objects.filter(region=custom.region).count(), 1)
+        # Before the pool existed there's nothing to play.
+        self.assertEqual(self.client.get(f"/near-me/archive/{long_ago}/").status_code, 404)
+        # Fixed regions still 404 on days nobody played.
+        self.assertEqual(self.client.get(f"/world/archive/{yesterday}/").status_code, 404)
+
     def test_fixed_regions_unaffected(self):
         self.assertEqual(self.client.get("/nope/").status_code, 404)
         self.assertEqual(self.client.get("/near-me-1/").status_code, 404)

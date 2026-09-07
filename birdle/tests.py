@@ -442,6 +442,35 @@ class PremiumPagesTests(TestCase):
         response = self.client.post("/premium/checkout/")
         self.assertEqual(response.status_code, 503)
 
+    @override_settings(STRIPE_ENABLED=True)
+    def test_checkout_with_existing_subscription_syncs_and_redirects(self):
+        Membership.objects.create(user=self.user, stripe_customer_id="cus_1")
+        existing = {
+            "id": "sub_1",
+            "status": "active",
+            "current_period_end": int(datetime(2030, 1, 1, tzinfo=timezone.utc).timestamp()),
+        }
+        self.client.force_login(self.user)
+        with patch("birdle.premium.find_subscription", return_value=existing) as find:
+            with patch("birdle.premium.create_checkout_session") as create:
+                response = self.client.post("/premium/checkout/")
+        find.assert_called_once_with("cus_1")
+        create.assert_not_called()
+        self.assertRedirects(response, "/premium/", fetch_redirect_response=False)
+        membership = Membership.objects.get(user=self.user)
+        self.assertEqual(membership.status, "active")
+        self.assertEqual(membership.stripe_subscription_id, "sub_1")
+
+    def test_nav_shows_upsell_for_non_members_and_star_for_members(self):
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get("/premium/"), "Go Premium")
+        Membership.objects.create(
+            user=self.user, comp_until=django_timezone.now() + timedelta(days=1)
+        )
+        response = self.client.get("/premium/")
+        self.assertNotContains(response, "Go Premium")
+        self.assertContains(response, "fa-star text-warning")
+
     def test_success_page_renders(self):
         self.client.force_login(self.user)
         response = self.client.get("/premium/success/")

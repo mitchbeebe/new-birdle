@@ -74,10 +74,9 @@
             <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/stats/"><i class="fas fa-chart-column"></i> Stats</a></li>
             <li class="nav-item"><a class="nav-link" href="/practice/"><i class="fas fa-graduation-cap"></i> Practice</a></li>
             <li class="nav-item"><a class="nav-link" href="/info/"><i class="fas fa-info-circle"></i> Info</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'premium' %}"><i class="fas fa-star"></i> Premium{% if premium_member %} <i class="fas fa-check"></i>{% endif %}</a></li>
             <li><hr class="dropdown-divider"></li>
             {% if user.is_authenticated %}
-            <li class="nav-item"><a class="nav-link" href="{% url 'profile' %}"><i class="fas fa-user"></i> {{ user.username }}</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'profile' %}"><i class="fas fa-user"></i> {{ user.username }}{% if premium_member %} <i class="fas fa-star text-warning" title="Premium"></i>{% endif %}</a></li>
             <li class="nav-item">
               <form method="post" action="{% url 'account_logout' %}">
                 {% csrf_token %}
@@ -86,6 +85,9 @@
             </li>
             {% else %}
             <li class="nav-item"><a class="nav-link" href="{% url 'account_login' %}"><i class="fas fa-sign-in-alt"></i> Log in</a></li>
+            {% endif %}
+            {% if not premium_member %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'premium' %}"><i class="fas fa-star"></i> Go Premium</a></li>
             {% endif %}
           </ul>
         </div>

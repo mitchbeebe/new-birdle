@@ -44,6 +44,16 @@ def create_customer(user) -> str:
     return customer.id
 
 
+def find_subscription(customer_id):
+    """Return the customer's newest non-canceled subscription, or None."""
+    _configure()
+    subs = stripe.Subscription.list(customer=customer_id, status="all", limit=10)
+    for sub in subs.data:
+        if sub.status not in {"canceled", "incomplete_expired"}:
+            return sub
+    return None
+
+
 def create_checkout_session(customer_id, user_id, success_url, cancel_url) -> str:
     _configure()
     session = stripe.checkout.Session.create(

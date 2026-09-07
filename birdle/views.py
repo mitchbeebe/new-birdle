@@ -571,6 +571,12 @@ def premium_checkout(request):
     if not membership.stripe_customer_id:
         membership.stripe_customer_id = premium_lib.create_customer(request.user)
         membership.save(update_fields=["stripe_customer_id"])
+    # Don't let a returning customer create a second subscription; sync the
+    # existing one (covers a missed webhook) and send them to the status page.
+    existing = premium_lib.find_subscription(membership.stripe_customer_id)
+    if existing is not None:
+        _apply_subscription(membership, existing)
+        return redirect("premium")
     url = premium_lib.create_checkout_session(
         membership.stripe_customer_id,
         request.user.pk,
@@ -611,6 +617,13 @@ def _subscription_period_end(subscription):
     return datetime.fromtimestamp(ts, tz=timezone.utc)
 
 
+def _apply_subscription(membership, subscription):
+    membership.stripe_subscription_id = subscription.get("id") or membership.stripe_subscription_id
+    membership.status = subscription.get("status") or ""
+    membership.current_period_end = _subscription_period_end(subscription)
+    membership.save(update_fields=["stripe_subscription_id", "status", "current_period_end"])
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def stripe_webhook(request):
@@ -644,10 +657,7 @@ def stripe_webhook(request):
         if membership is None:
             logger.warning("Stripe subscription event for unknown customer %r", obj.get("customer"))
             return HttpResponse(status=200)
-        membership.stripe_subscription_id = obj.get("id") or membership.stripe_subscription_id
-        membership.status = obj.get("status") or ""
-        membership.current_period_end = _subscription_period_end(obj)
-        membership.save(update_fields=["stripe_subscription_id", "status", "current_period_end"])
+        _apply_subscription(membership, obj)
 
     return HttpResponse(status=200)
 

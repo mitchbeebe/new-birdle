@@ -114,3 +114,14 @@
         font-size: 11px;
     }
 }
+
+/* Archive calendar: seven equal columns regardless of bird name length */
+.archive-calendar {
+    table-layout: fixed;
+    width: 100%;
+}
+.archive-calendar td,
+.archive-calendar th {
+    width: 14.2857%;
+    overflow: hidden;
+}

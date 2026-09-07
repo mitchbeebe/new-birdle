@@ -73,8 +73,13 @@ password (or set one, for Google/code-only accounts).
   SOCIALACCOUNT_LOGIN_ON_GET = True
   SOCIALACCOUNT_PROVIDERS = {
       "google": {
-          "APPS": [{"client_id": os.getenv("GOOGLE_OAUTH_CLIENT_ID", ""),
-                    "secret": os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", ""), "key": ""}],
+          "APPS": [
+              {
+                  "client_id": os.getenv("GOOGLE_OAUTH_CLIENT_ID", ""),
+                  "secret": os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", ""),
+                  "key": "",
+              }
+          ],
           "SCOPE": ["profile", "email"],
           "AUTH_PARAMS": {"access_type": "online"},
       }

@@ -6,23 +6,32 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('birdle', '0013_birdregion_birdle_bird_region__7c1a95_idx'),
+        ("birdle", "0013_birdregion_birdle_bird_region__7c1a95_idx"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Membership',
+            name="Membership",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('stripe_customer_id', models.CharField(blank=True, max_length=255)),
-                ('stripe_subscription_id', models.CharField(blank=True, max_length=255)),
-                ('status', models.CharField(blank=True, max_length=32)),
-                ('current_period_end', models.DateTimeField(blank=True, null=True)),
-                ('comp_until', models.DateTimeField(blank=True, null=True)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("stripe_customer_id", models.CharField(blank=True, max_length=255)),
+                ("stripe_subscription_id", models.CharField(blank=True, max_length=255)),
+                ("status", models.CharField(blank=True, max_length=32)),
+                ("current_period_end", models.DateTimeField(blank=True, null=True)),
+                ("comp_until", models.DateTimeField(blank=True, null=True)),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL
+                    ),
+                ),
             ],
         ),
     ]

@@ -6,20 +6,27 @@ import requests.adapters
 from bs4 import BeautifulSoup
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from django.shortcuts import redirect, render
 from urllib.parse import quote, unquote, urlparse
 from django.contrib.auth.models import User
-from .models import Bird, Guess, Game, UserGame, Image, BirdRegion, Region
+from .models import Bird, Guess, Game, Membership, UserGame, Image, BirdRegion, Region
 from .forms import BirdRegionForm, UsernameForm
+from . import premium as premium_lib
 from django.core.cache import cache
 from django.db.models import Count, Exists, OuterRef, Q
-from django.http import Http404, HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
+from django.urls import reverse
 from django.template.loader import render_to_string
 from django.template.defaulttags import register
+import logging
 import pytz
 from datetime import datetime, timezone
 from random import choices
 from pandas import date_range
+
+logger = logging.getLogger(__name__)
 
 
 def random_bird(region_code="world"):
@@ -482,6 +489,11 @@ def google_login_enabled():
     return bool(settings.GOOGLE_OAUTH_CLIENT_ID)
 
 
+@register.simple_tag(takes_context=True)
+def is_premium(context):
+    return premium_lib.is_premium(context["user"])
+
+
 @register.filter
 def add_class(field, css_class):
     return field.as_widget(attrs={"class": css_class})
@@ -533,6 +545,111 @@ def region(request):
         regions[region_code],  # Return display name for dropdown
         headers={"HX-Redirect": redirect_path},
     )
+
+
+def premium(request):
+    membership = None
+    if request.user.is_authenticated:
+        membership = Membership.objects.filter(user=request.user).first()
+    return render(
+        request,
+        "birdle/premium.html",
+        {
+            "membership": membership,
+            "premium": membership is not None and membership.is_active,
+            "stripe_enabled": settings.STRIPE_ENABLED,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["POST"])
+def premium_checkout(request):
+    if not settings.STRIPE_ENABLED:
+        return HttpResponse("Subscriptions aren't available yet.", status=503)
+    membership, _ = Membership.objects.get_or_create(user=request.user)
+    if not membership.stripe_customer_id:
+        membership.stripe_customer_id = premium_lib.create_customer(request.user)
+        membership.save(update_fields=["stripe_customer_id"])
+    url = premium_lib.create_checkout_session(
+        membership.stripe_customer_id,
+        request.user.id,
+        request.build_absolute_uri(reverse("premium_success")),
+        request.build_absolute_uri(reverse("premium")),
+    )
+    return HttpResponseRedirect(url, status=303)
+
+
+@login_required
+def premium_success(request):
+    return render(request, "birdle/premium_success.html")
+
+
+@login_required
+@require_http_methods(["POST"])
+def premium_portal(request):
+    membership = Membership.objects.filter(user=request.user).first()
+    if not settings.STRIPE_ENABLED or membership is None or not membership.stripe_customer_id:
+        return HttpResponse("No subscription to manage.", status=400)
+    url = premium_lib.create_portal_session(
+        membership.stripe_customer_id, request.build_absolute_uri(reverse("premium"))
+    )
+    return HttpResponseRedirect(url, status=303)
+
+
+def _subscription_period_end(subscription):
+    # Newer Stripe API versions moved current_period_end from the subscription
+    # onto its items.
+    ts = subscription.get("current_period_end")
+    if ts is None:
+        items = subscription.get("items") or {}
+        data = items.get("data") or []
+        if data:
+            ts = data[0].get("current_period_end")
+    if ts is None:
+        return None
+    return datetime.fromtimestamp(ts, tz=timezone.utc)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def stripe_webhook(request):
+    try:
+        event = premium_lib.construct_event(
+            request.body, request.META.get("HTTP_STRIPE_SIGNATURE", "")
+        )
+    except Exception:
+        return HttpResponse("Invalid signature", status=400)
+
+    event_type = event["type"]
+    obj = event["data"]["object"]
+
+    if event_type == "checkout.session.completed":
+        user = User.objects.filter(pk=obj.get("client_reference_id") or None).first()
+        if user is None:
+            logger.warning("Stripe checkout completed for unknown user %r", obj.get("id"))
+            return HttpResponse(status=200)
+        membership, _ = Membership.objects.get_or_create(user=user)
+        membership.stripe_customer_id = obj.get("customer") or ""
+        membership.stripe_subscription_id = obj.get("subscription") or ""
+        membership.save(update_fields=["stripe_customer_id", "stripe_subscription_id"])
+    elif event_type in {
+        "customer.subscription.created",
+        "customer.subscription.updated",
+        "customer.subscription.deleted",
+    }:
+        membership = Membership.objects.filter(stripe_customer_id=obj.get("customer")).first()
+        if membership is None:
+            membership = Membership.objects.filter(stripe_subscription_id=obj.get("id")).first()
+        if membership is None:
+            logger.warning("Stripe subscription event for unknown customer %r", obj.get("customer"))
+            return HttpResponse(status=200)
+        membership.stripe_subscription_id = obj.get("id") or membership.stripe_subscription_id
+        membership.status = obj.get("status") or ""
+        membership.current_period_end = _subscription_period_end(obj)
+        membership.save(update_fields=["stripe_subscription_id", "status", "current_period_end"])
+
+    return HttpResponse(status=200)
 
 
 def get_hint_data(guess_count, bird, is_winner=False):

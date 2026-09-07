@@ -68,11 +68,13 @@
           <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body">
+          {% is_premium as premium_member %}
           <ul class="navbar-nav ms-auto pe-3">
             <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/"><i class="fas fa-home"></i> Home</a></li>
             <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/stats/"><i class="fas fa-chart-column"></i> Stats</a></li>
             <li class="nav-item"><a class="nav-link" href="/practice/"><i class="fas fa-graduation-cap"></i> Practice</a></li>
             <li class="nav-item"><a class="nav-link" href="/info/"><i class="fas fa-info-circle"></i> Info</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'premium' %}"><i class="fas fa-star"></i> Premium{% if premium_member %} <i class="fas fa-check"></i>{% endif %}</a></li>
             <li><hr class="dropdown-divider"></li>
             {% if user.is_authenticated %}
             <li class="nav-item"><a class="nav-link" href="{% url 'profile' %}"><i class="fas fa-user"></i> {{ user.username }}</a></li>

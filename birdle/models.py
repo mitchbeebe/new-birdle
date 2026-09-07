@@ -157,3 +157,24 @@ class Membership(models.Model):
         )
         comp_ok = self.comp_until is not None and self.comp_until > now
         return stripe_ok or comp_ok
+
+
+class CustomRegion(models.Model):
+    """A premium user's one custom region, built from nearby eBird observations.
+
+    The species pool lives in BirdRegion rows against ``region`` (code ``custom-<user pk>``)
+    so games, autocomplete, and stats work exactly like a fixed region.
+    """
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    region = models.OneToOneField(Region, on_delete=models.CASCADE)
+    lat = models.DecimalField(max_digits=5, decimal_places=2)
+    lng = models.DecimalField(max_digits=6, decimal_places=2)
+    dist = models.PositiveSmallIntegerField(default=25)  # km, 1-50
+    back = models.PositiveSmallIntegerField(default=14)  # days, 1-30
+    include_provisional = models.BooleanField(default=False)
+    species_count = models.PositiveIntegerField(default=0)
+    built_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user}: {self.region.name}"

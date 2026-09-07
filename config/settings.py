@@ -128,6 +128,10 @@ STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_ENABLED = bool(STRIPE_SECRET_KEY and STRIPE_PRICE_ID)
 
+# eBird API (custom regions from nearby observations); unset disables the feature
+EBIRD_API_KEY = os.getenv("EBIRD_API_KEY", "")
+EBIRD_ENABLED = bool(EBIRD_API_KEY)
+
 # Email (Resend SMTP in production, console locally)
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Birdle <noreply@play-birdle.com>")
 if os.getenv("RESEND_API_KEY"):

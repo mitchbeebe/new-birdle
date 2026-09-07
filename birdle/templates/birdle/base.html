@@ -55,7 +55,7 @@
             <span id="region"> {{request.session.region_code|default:"world"|region_name}}</span>
           </a>
           <ul class="dropdown-menu dropdown-menu-end dropdown-menu-lg-start position-absolute" aria-labelledby="bd-theme-text" data-bs-popper="static">
-            {% get_regions as regions %}
+            {% get_nav_regions as regions %}
             {% for code, name in regions.items %}
             <li>
               <a href="/{{code}}/" name={{code}} class="dropdown-item" hx-post="/region" hx-target="#region" hx-swap="innerHTML">{{name}}</a>

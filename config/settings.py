@@ -49,7 +49,9 @@ if not IS_HEROKU_APP:
 if IS_HEROKU_APP:
     ALLOWED_HOSTS = ["*"]
 else:
-    ALLOWED_HOSTS = []
+    # Comma-separated extra hosts for local testing from other devices (LAN IP, Tailscale, ...).
+    # DEBUG already allows localhost.
+    ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h.strip()]
 
 
 # Application definition
@@ -252,4 +254,6 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.play-birdle.com",
     "http://www.play-birdle.com",
     "https://www.play-birdle.com/region",
+    # Extra hosts are reachable over http (LAN) and https (Tailscale funnel).
+    *[f"{scheme}://{h}" for h in ALLOWED_HOSTS for scheme in ("http", "https")],
 ]

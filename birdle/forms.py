@@ -17,7 +17,7 @@ class BirdRegionForm(forms.Form):
             ("Any", "Any Region"),
             *[
                 (val[0], val[0])
-                for val in Region.objects.exclude(code__startswith="nearme-")
+                for val in Region.objects.exclude(code__startswith="near-me-")
                 .values_list("name")
                 .order_by("name")
             ],

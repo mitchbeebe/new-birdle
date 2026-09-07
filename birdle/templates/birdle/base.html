@@ -68,7 +68,7 @@
             {% get_nav_regions as regions %}
             {% for code, name in regions.items %}
             <li>
-              {% if code == "nearme" and not premium_member %}
+              {% if code == "near-me" and not premium_member %}
               <a href="{% url 'premium' %}" class="dropdown-item text-body-tertiary" title="Premium feature">{{name}} <span class="badge text-bg-warning">Premium</span></a>
               {% else %}
               <a href="/{{code}}/" name={{code}} class="dropdown-item" hx-post="/region" hx-target="#region" hx-swap="innerHTML">{{name}}</a>

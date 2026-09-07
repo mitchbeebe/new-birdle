@@ -42,8 +42,8 @@ from pandas import date_range
 
 logger = logging.getLogger(__name__)
 
-# Public code for a premium user's custom region; resolved per user to ``nearme-<pk>``.
-CUSTOM_REGION_CODE = "nearme"
+# Public code for a premium user's custom region; resolved per user to ``near-me-<pk>``.
+CUSTOM_REGION_CODE = "near-me"
 CUSTOM_REGION_NAME = "Near me"
 # Paths under /<region>/ that the region switcher preserves when changing regions.
 REGION_PAGE_SUFFIXES = {"stats", "archive"}

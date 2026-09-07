@@ -162,7 +162,7 @@ class Membership(models.Model):
 class CustomRegion(models.Model):
     """A premium user's one custom region, built from nearby eBird observations.
 
-    The species pool lives in BirdRegion rows against ``region`` (code ``nearme-<user pk>``)
+    The species pool lives in BirdRegion rows against ``region`` (code ``near-me-<user pk>``)
     so games, autocomplete, and stats work exactly like a fixed region.
     """
 

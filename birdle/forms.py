@@ -1,6 +1,7 @@
 from typing import cast
 
 from django import forms
+from django.contrib.auth.models import User
 
 from .models import Bird, BirdRegion, Region
 
@@ -41,3 +42,16 @@ class BirdRegionForm(forms.Form):
             raise forms.ValidationError(f"{family} have not been found in the {region} region.")
 
         return cleaned_data
+
+
+class UsernameForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ["username"]
+        widgets = {"username": forms.TextInput(attrs={"class": "form-control"})}
+
+    def clean_username(self):
+        username = self.cleaned_data["username"]
+        if username.isdigit():
+            raise forms.ValidationError("Username cannot be all digits.")
+        return username

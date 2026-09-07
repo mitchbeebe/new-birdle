@@ -1,0 +1,30 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Profile{% endblock %}
+
+{% block card_body %}
+{% if saved %}
+<div class="alert alert-success py-2">Username updated.</div>
+{% endif %}
+<p class="text-body-secondary mb-3">Email: {{ user.email|default:"none" }}</p>
+<form method="post" action="{% url 'profile' %}">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label for="{{ form.username.id_for_label }}" class="form-label">Username</label>
+        {{ form.username }}
+        {% for error in form.username.errors %}
+        <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Save</button>
+</form>
+<hr>
+<div class="d-grid gap-2">
+    {% if user.has_usable_password %}
+    <a href="{% url 'account_change_password' %}" class="btn btn-outline-secondary">Change password</a>
+    {% else %}
+    <a href="{% url 'account_set_password' %}" class="btn btn-outline-secondary">Set a password</a>
+    {% endif %}
+    <a href="{% url 'account_reset_password' %}" class="btn btn-link">Forgot your password?</a>
+</div>
+{% endblock %}

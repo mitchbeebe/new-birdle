@@ -4,11 +4,13 @@ import re
 import requests
 import requests.adapters
 from bs4 import BeautifulSoup
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from urllib.parse import quote, unquote, urlparse
 from django.contrib.auth.models import User
 from .models import Bird, Guess, Game, UserGame, Image, BirdRegion, Region
-from .forms import BirdRegionForm
+from .forms import BirdRegionForm, UsernameForm
 from django.core.cache import cache
 from django.db.models import Count, Exists, OuterRef, Q
 from django.http import Http404, HttpResponse, JsonResponse
@@ -187,6 +189,20 @@ def daily_bird(request, region_code=None):
             "hint": get_hint_data(guess_count, game.bird, usergame.is_winner),
         }
         return JsonResponse(context)
+
+
+@login_required
+def profile(request):
+    saved = False
+    if request.method == "POST":
+        form = UsernameForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            request.session["username"] = request.user.username
+            saved = True
+    else:
+        form = UsernameForm(instance=request.user)
+    return render(request, "birdle/profile.html", {"form": form, "saved": saved})
 
 
 def stats(request, region_code=None):
@@ -459,6 +475,16 @@ def get_regions():
         "aut": "Australia and Territories",
     }
     return region_dict
+
+
+@register.simple_tag
+def google_login_enabled():
+    return bool(settings.GOOGLE_OAUTH_CLIENT_ID)
+
+
+@register.filter
+def add_class(field, css_class):
+    return field.as_widget(attrs={"class": css_class})
 
 
 @register.simple_tag(takes_context=True)

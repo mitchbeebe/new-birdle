@@ -27,6 +27,16 @@
 
         <!-- HTMX (load normally - needed for page interactivity) -->
         <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
+        <script>
+          // Guard every plain form against double submits: logging in rotates the CSRF token,
+          // so a second click on Sign Up / Log In would be rejected with a 403.
+          // Forms that handle their own submit (guess form, confirm dialogs) cancel the event
+          // and are left alone.
+          document.addEventListener("submit", function (e) {
+            if (e.defaultPrevented) return;
+            e.target.querySelectorAll("button[type=submit]").forEach(function (b) { b.disabled = true; });
+          });
+        </script>
 
         <link rel="stylesheet" href="{% static 'birdle/style.css' %}">
 

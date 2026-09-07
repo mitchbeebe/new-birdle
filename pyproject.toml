@@ -3,12 +3,13 @@ name = "birdle"
 version = "1.0.0"
 requires-python = ">=3.14"
 dependencies = [
-    "asgiref==3.7.2",
+    "asgiref==3.12.1",
     "beautifulsoup4==4.12.3",
     "certifi==2023.11.17",
     "charset-normalizer==3.3.2",
     "dj-database-url==2.1.0",
     "django==5.0.1",
+    "django-allauth[socialaccount]==65.19.2",
     "django-htmx==1.17.3",
     "django-on-heroku==1.1.2",
     "django-stubs>=5.0.0",

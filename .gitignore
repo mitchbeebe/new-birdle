@@ -138,3 +138,5 @@ dmypy.json
 ebird_taxonomy_v2022.csv
 historical-db/
 birdledb.dump
+
+.claude/

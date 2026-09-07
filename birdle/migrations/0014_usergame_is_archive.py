@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('birdle', '0013_birdregion_birdle_bird_region__7c1a95_idx'),
+        ("birdle", "0013_birdregion_birdle_bird_region__7c1a95_idx"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='usergame',
-            name='is_archive',
+            model_name="usergame",
+            name="is_archive",
             field=models.BooleanField(default=False),
         ),
     ]

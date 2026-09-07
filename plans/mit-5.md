@@ -68,8 +68,8 @@ doesn't spoil the answer), result, and a Play/View link to `archive_game`.
 ## URLs (`config/urls.py`)
 
 ```python
-path("<str:region_code>/archive/", views.archive, name="archive"),
-path("<str:region_code>/archive/<str:date>/", views.archive_game, name="archive_game"),
+path("<str:region_code>/archive/", views.archive, name="archive")
+path("<str:region_code>/archive/<str:date>/", views.archive_game, name="archive_game")
 ```
 Place them next to `stats_region`. `date` is `YYYY-MM-DD`; parse with
 `datetime.date.fromisoformat`, 404 on `ValueError`, on no `Game` for that date/region, or on

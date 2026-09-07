@@ -258,15 +258,21 @@ def archive(request, region_code):
     )
     page = Paginator(games, 30).get_page(request.GET.get("page"))
 
-    usergames = UserGame.objects.filter(user=request.user, game__in=page.object_list).annotate(
-        num_guesses=Count("guess"),
-        has_won=Exists(Guess.objects.filter(usergame=OuterRef("pk"), bird=OuterRef("game__bird"))),
+    usergames = (
+        UserGame.objects.filter(user=request.user, game__in=page.object_list)
+        .select_related("game")
+        .annotate(
+            num_guesses=Count("guess"),
+            has_won=Exists(
+                Guess.objects.filter(usergame=OuterRef("pk"), bird=OuterRef("game__bird"))
+            ),
+        )
     )
-    by_game = {usergame.game_id: usergame for usergame in usergames}
+    by_game = {usergame.game.pk: usergame for usergame in usergames}
 
     rows = []
     for game in page.object_list:
-        usergame = by_game.get(game.id)
+        usergame = by_game.get(game.pk)
         if usergame is None or usergame.num_guesses == 0:
             result = "Not played"
         elif usergame.has_won:

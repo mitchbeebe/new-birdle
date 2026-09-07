@@ -521,22 +521,47 @@ class ArchiveTests(TestCase):
                 self.assertEqual(response.status_code, 302)
                 self.assertTrue(response["Location"].startswith("/accounts/login/"))
 
-    def test_list_shows_past_games_newest_first(self):
-        self.login()
-        response = self.client.get("/world/archive/")
+    def calendar_cells(self, month):
+        """Playable cells of the archive calendar for a month, keyed by date."""
+        response = self.client.get(f"/world/archive/?month={month:%Y-%m}")
         self.assertEqual(response.status_code, 200)
-        dates = [row["date"] for row in response.context["rows"]]
-        self.assertEqual(dates, [self.games[1].date, self.games[2].date])
+        return {
+            cell["date"]: cell
+            for week in response.context["weeks"]
+            for cell in week
+            if cell and "date" in cell
+        }
 
-    def test_list_hides_bird_name_until_finished(self):
+    def test_calendar_shows_past_games_only(self):
+        self.login()
+        cells = self.calendar_cells(self.today)
+        self.assertNotIn(self.today, cells)
+        for days_ago in (1, 2):
+            game_date = self.games[days_ago].date
+            with self.subTest(game_date=game_date):
+                self.assertIn(game_date, self.calendar_cells(game_date))
+
+    def test_calendar_hides_bird_name_until_finished(self):
         self.login()
         usergame = UserGame.objects.create(user=self.user, game=self.games[2], is_archive=True)
         Guess.objects.create(usergame=usergame, bird=self.games[2].bird)
-        rows = self.client.get("/world/archive/").context["rows"]
-        self.assertEqual(rows[0]["bird"], "?")
-        self.assertEqual(rows[0]["result"], "Not played")
-        self.assertEqual(rows[1]["bird"], self.games[2].bird.name)
-        self.assertEqual(rows[1]["result"], "Win")
+        unplayed = self.calendar_cells(self.games[1].date)[self.games[1].date]
+        self.assertIsNone(unplayed["bird"])
+        self.assertEqual(unplayed["result"], "Not played")
+        won = self.calendar_cells(self.games[2].date)[self.games[2].date]
+        self.assertEqual(won["bird"], self.games[2].bird.name)
+        self.assertEqual(won["result"], "Win")
+
+    def test_calendar_month_navigation_is_bounded(self):
+        self.login()
+        response = self.client.get("/world/archive/")
+        self.assertEqual(response.context["month"], self.today.replace(day=1))
+        self.assertIsNone(response.context["next_month"])
+        # Clamped to the current month when asked for the future; bad values fall back too.
+        for month in ["2999-01", "garbage"]:
+            with self.subTest(month=month):
+                response = self.client.get(f"/world/archive/?month={month}")
+                self.assertEqual(response.context["month"], self.today.replace(day=1))
 
     def test_play_past_game_creates_archive_usergame_and_records_guess(self):
         self.login()

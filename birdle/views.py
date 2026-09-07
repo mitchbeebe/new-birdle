@@ -1,3 +1,4 @@
+import calendar
 import json
 import random
 import re
@@ -15,7 +16,6 @@ from .models import Bird, Guess, Game, Membership, UserGame, Image, BirdRegion, 
 from .forms import BirdRegionForm, UsernameForm
 from . import premium as premium_lib
 from django.core.cache import cache
-from django.core.paginator import Paginator
 from django.db.models import Count, Exists, OuterRef, Q
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.urls import reverse
@@ -247,19 +247,36 @@ def _past_game_or_404(region_code, date_str, tz):
         raise Http404("No game for that date")
 
 
+def _month_param(value, today):
+    try:
+        return datetime.strptime(value, "%Y-%m").date().replace(day=1)
+    except TypeError, ValueError:
+        return today.replace(day=1)
+
+
+def _add_months(month, n):
+    total = month.year * 12 + (month.month - 1) + n
+    return date(total // 12, total % 12 + 1, 1)
+
+
 @premium_lib.premium_required
 def archive(request, region_code):
     _validate_region(request, region_code)
     user_tz = get_user_timezone(request)
-    games = (
-        Game.objects.filter(region__code=region_code, date__lt=_today(user_tz))
-        .select_related("bird")
-        .order_by("-date")
-    )
-    page = Paginator(games, 30).get_page(request.GET.get("page"))
+    today = _today(user_tz)
+    month = _month_param(request.GET.get("month"), today)
+    first_game = Game.objects.filter(region__code=region_code).order_by("date").first()
+    first_month = first_game.date.replace(day=1) if first_game else today.replace(day=1)
+    month = min(max(month, first_month), today.replace(day=1))
 
+    games = Game.objects.filter(
+        region__code=region_code,
+        date__gte=month,
+        date__lt=min(_add_months(month, 1), today),
+    ).select_related("bird")
+    by_date = {game.date: game for game in games}
     usergames = (
-        UserGame.objects.filter(user=request.user, game__in=page.object_list)
+        UserGame.objects.filter(user=request.user, game__in=games)
         .select_related("game")
         .annotate(
             num_guesses=Count("guess"),
@@ -270,8 +287,13 @@ def archive(request, region_code):
     )
     by_game = {usergame.game.pk: usergame for usergame in usergames}
 
-    rows = []
-    for game in page.object_list:
+    def day_cell(day):
+        if day == 0:
+            return None
+        game_date = month.replace(day=day)
+        game = by_date.get(game_date)
+        if game is None:
+            return {"day": day}
         usergame = by_game.get(game.pk)
         if usergame is None or usergame.num_guesses == 0:
             result = "Not played"
@@ -282,16 +304,25 @@ def archive(request, region_code):
         else:
             result = "In progress"
         finished = result in ("Win", "Loss")
-        rows.append(
-            {
-                "date": game.date,
-                "bird": game.bird.name if finished else "?",
-                "result": result,
-                "finished": finished,
-            }
-        )
+        return {
+            "day": day,
+            "date": game_date,
+            "bird": game.bird.name if finished else None,
+            "result": result,
+            "finished": finished,
+        }
 
-    context = {"page": page, "rows": rows, "region_code": region_code}
+    weeks = [
+        [day_cell(d) for d in week] for week in calendar.monthcalendar(month.year, month.month)
+    ]
+
+    context = {
+        "region_code": region_code,
+        "month": month,
+        "weeks": weeks,
+        "prev_month": _add_months(month, -1) if month > first_month else None,
+        "next_month": _add_months(month, 1) if month < today.replace(day=1) else None,
+    }
     return render(request, "birdle/archive.html", context)
 
 

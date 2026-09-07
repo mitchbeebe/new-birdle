@@ -29,6 +29,7 @@ from . import ebird
 from . import premium as premium_lib
 from .signals import merge_anonymous_history
 from .premium import premium_required
+from .accolades import detailed_stats
 from django.core.cache import cache
 from django.db.models import Count, Exists, OuterRef, Q
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
@@ -499,8 +500,12 @@ def stats(request, region_code=None):
 
     username = request.session.get("username")
     user_tz = get_user_timezone(request)
+    premium = premium_lib.is_premium(request.user)
     cache_key = _stats_cache_key(username, region_code) if username else None
     stats = cache.get(cache_key) if cache_key else None
+    # A cached block computed before the user went premium lacks the detailed section.
+    if stats is not None and premium and "detailed" not in stats:
+        stats = None
     # Retrieve the user's guess history from the database
     if username and stats is None:
         usergames = (
@@ -585,6 +590,10 @@ def stats(request, region_code=None):
             "current_streak": current_streak,
             "best_streak": best_streak,
         }
+        if premium:
+            stats["detailed"] = detailed_stats(
+                request.user, region_code, user_tz, usergames, best_streak, get_regions()
+            )
         cache.set(cache_key, stats, timeout=60 * 10)
     elif not username:
         stats = {
@@ -597,7 +606,11 @@ def stats(request, region_code=None):
             "best_streak": 0,
         }
     # Render the guess history template with the data
-    return render(request, "birdle/stats.html", stats)
+    assert stats is not None
+    context = {**stats, "premium": premium}
+    if not premium:
+        context.pop("detailed", None)
+    return render(request, "birdle/stats.html", context)
 
 
 def info(request):

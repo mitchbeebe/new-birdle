@@ -4,6 +4,20 @@
 
 {% load static %}
 
+{% block extra_head %}
+<style>
+    .award .award-icon { font-size: 1.75rem; color: var(--bs-warning); }
+    .award-locked { opacity: 0.55; }
+    .award-locked .award-icon { color: var(--bs-secondary); }
+    .heatmap td, .heatmap th { padding: 1px; }
+    .heat { width: 0.9rem; height: 0.9rem; border-radius: 2px; background: var(--bs-success); opacity: 0.08; }
+    .heat-1 { opacity: 0.3; }
+    .heat-2 { opacity: 0.55; }
+    .heat-3 { opacity: 0.8; }
+    .heat-4 { opacity: 1; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container text-center pt-2">
     <div class="col-auto mx-auto">
@@ -19,6 +33,84 @@
         <hr>
         <h3 class="text-center">History</h3>
         <div class="d-flex justify-content-center" id="game_history"></div>
+        <hr>
+        {% if detailed %}
+        <h3 class="text-center">Accolades</h3>
+        <div class="row g-2 justify-content-center mb-4">
+            {% for award in detailed.awards %}{% include 'birdle/_award.html' %}{% endfor %}
+        </div>
+
+        <h4 class="text-center">Accuracy by Family</h4>
+        {% if detailed.families %}
+        <div class="table-responsive">
+            <table class="table table-sm mx-auto w-auto">
+                <thead><tr><th class="text-start">Family</th><th>Games</th><th>Wins</th><th>Win %</th></tr></thead>
+                <tbody>
+                    {% for row in detailed.families %}
+                    <tr><td class="text-start">{{ row.family }}</td><td>{{ row.games }}</td><td>{{ row.wins }}</td><td>{% widthratio row.win_pct 1 100 %}%</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-body-secondary">Play a game to see your accuracy by family.</p>
+        {% endif %}
+
+        <h4 class="text-center mt-4">Hardest Birds</h4>
+        {% if detailed.hardest %}
+        <div class="table-responsive">
+            <table class="table table-sm mx-auto w-auto">
+                <thead><tr><th class="text-start">Bird</th><th>Losses</th><th>Guesses</th></tr></thead>
+                <tbody>
+                    {% for row in detailed.hardest %}
+                    <tr><td class="text-start">{{ row.bird }}</td><td>{{ row.losses }}</td><td>{{ row.guesses }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-body-secondary">No birds have stumped you yet.</p>
+        {% endif %}
+
+        <h4 class="text-center mt-4">When You Guess</h4>
+        {% if detailed.heatmap.total %}
+        <div class="table-responsive">
+            <table class="table table-sm table-borderless mx-auto w-auto heatmap">
+                <thead>
+                    <tr><th></th>{% for hour in detailed.heatmap.hours %}<th class="small fw-normal text-body-secondary">{% if hour|divisibleby:3 %}{{ hour }}{% endif %}</th>{% endfor %}</tr>
+                </thead>
+                <tbody>
+                    {% for row in detailed.heatmap.rows %}
+                    <tr><th class="small fw-normal text-body-secondary text-start">{{ row.day }}</th>{% for cell in row.cells %}<td><div class="heat heat-{{ cell.level }}" title="{{ row.day }} {{ cell.hour }}:00 — {{ cell.count }} guess{{ cell.count|pluralize:'es' }}"></div></td>{% endfor %}</tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-body-secondary">Guesses by weekday and hour, in your local time.</p>
+        {% else %}
+        <p class="text-body-secondary">Make a guess to see when you play.</p>
+        {% endif %}
+
+        <h4 class="text-center mt-4">Life List</h4>
+        <p class="mb-2">{{ detailed.life_list.count }} species identified across all regions.</p>
+        {% if detailed.life_list.families %}
+        <button class="btn btn-outline-secondary btn-sm mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#life-list">Show list</button>
+        <div class="collapse text-start mx-auto" id="life-list" style="max-width: 32rem;">
+            {% for group in detailed.life_list.families %}
+            <div class="fw-semibold mt-2">{{ group.family }} <span class="text-body-secondary fw-normal">({{ group.species|length }})</span></div>
+            <div>{{ group.species|join:", " }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="card mx-auto" style="max-width: 32rem;">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-star text-warning"></i> Accolades</h5>
+                <p class="card-text">Premium members unlock awards, accuracy by family, hardest birds, a guess heatmap, and a life list.</p>
+                <a href="{% url 'premium' %}" class="btn btn-warning fw-semibold">Go Premium</a>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 

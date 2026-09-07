@@ -3,14 +3,18 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import patch
 
+import pytz
+
 from allauth.socialaccount.adapter import get_adapter as get_socialaccount_adapter
 from allauth.socialaccount.models import SocialAccount, SocialLogin
 from django.contrib.auth.models import AnonymousUser, User
 from django.core.cache import cache
+from django.db.models import Count, Exists, OuterRef
 from django.http import HttpResponse
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone as django_timezone
 
+from . import accolades
 from .models import (
     Bird,
     BirdRegion,
@@ -26,7 +30,7 @@ from .ebird import EbirdError, fetch_nearby_species_codes
 from .geocode import GeocodeError, lookup, reverse_lookup
 from .premium import premium_required
 from .signals import merge_anonymous_history
-from .views import random_bird
+from .views import _stats_cache_key, random_bird
 
 
 def make_bird(species_code):
@@ -1059,3 +1063,173 @@ class GeocodeLookupTests(TestCase):
     def test_unconfigured_raises(self):
         with self.assertRaises(GeocodeError):
             lookup("Portland")
+
+
+class AccoladeTests(TestCase):
+    def setUp(self):
+        self.world, _ = Region.objects.get_or_create(code="world", defaults={"name": "World"})
+        self.user = User.objects.create_user("alice", "alice@example.com", "s3cret-pass")
+        self.tz = pytz.timezone("US/Eastern")
+
+    def bird(self, name, family="family"):
+        bird = make_bird(name)
+        bird.family = family
+        bird.save()
+        return bird
+
+    def play(self, bird, day, won, guesses=1, region=None, user=None):
+        game, _ = Game.objects.get_or_create(
+            date=day, region=region or self.world, defaults={"bird": bird}
+        )
+        usergame = UserGame.objects.create(user=user or self.user, game=game)
+        wrong = self.bird(f"wrong-{bird.name}-{day}-{region and region.code}")
+        for _ in range(guesses - 1 if won else guesses):
+            Guess.objects.create(usergame=usergame, bird=wrong)
+        if won:
+            Guess.objects.create(usergame=usergame, bird=bird)
+        return usergame
+
+    def usergames(self, region_code="world"):
+        return UserGame.objects.filter(user=self.user, game__region__code=region_code).annotate(
+            num_guesses=Count("guess"),
+            has_won=Exists(
+                Guess.objects.filter(usergame=OuterRef("pk"), bird=OuterRef("game__bird"))
+            ),
+        )
+
+    def test_family_accuracy_math(self):
+        self.play(self.bird("a", "Ducks"), date(2024, 1, 1), won=True)
+        self.play(self.bird("b", "Ducks"), date(2024, 1, 2), won=False)
+        self.play(self.bird("c", "Owls"), date(2024, 1, 3), won=True)
+        UserGame.objects.create(  # unplayed game is ignored
+            user=self.user, game=Game.objects.create(date=date(2024, 1, 4), bird=self.bird("d"))
+        )
+        rows = accolades.family_accuracy(self.usergames())
+        self.assertEqual(
+            rows,
+            [
+                {"family": "Ducks", "games": 2, "wins": 1, "win_pct": 0.5},
+                {"family": "Owls", "games": 1, "wins": 1, "win_pct": 1.0},
+            ],
+        )
+
+    def test_hardest_birds_ordering(self):
+        self.play(self.bird("easy"), date(2024, 1, 1), won=True, guesses=1)
+        self.play(self.bird("stumper"), date(2024, 1, 2), won=False, guesses=6)
+        self.play(self.bird("tough"), date(2024, 1, 3), won=True, guesses=5)
+        self.play(self.bird("miss"), date(2024, 1, 4), won=False, guesses=3)
+        rows = accolades.hardest_birds(self.usergames())
+        self.assertEqual([r["bird"] for r in rows], ["stumper", "miss", "tough", "easy"])
+
+    def test_heatmap_buckets_respect_timezone(self):
+        # 03:30 UTC on a Tuesday is 22:30 Monday in US/Eastern (EST).
+        guessed_ats = [datetime(2024, 1, 9, 3, 30, tzinfo=timezone.utc)] * 2
+        heatmap = accolades.guess_heatmap(guessed_ats, self.tz)
+        monday = heatmap["rows"][0]
+        self.assertEqual(monday["day"], "Mon")
+        self.assertEqual(monday["cells"][22], {"hour": 22, "count": 2, "level": 4})
+        self.assertEqual(heatmap["rows"][1]["cells"][3]["count"], 0)
+        self.assertEqual(heatmap["total"], 2)
+
+    def test_life_list_distinct_across_regions(self):
+        eu = Region.objects.create(code="eu", name="Europe")
+        robin = self.bird("robin", "Thrushes")
+        self.play(robin, date(2024, 1, 1), won=True)
+        self.play(robin, date(2024, 1, 2), won=True, region=eu)
+        self.play(self.bird("owl", "Owls"), date(2024, 1, 3), won=True, region=eu)
+        self.play(self.bird("duck", "Ducks"), date(2024, 1, 4), won=False)
+        life = accolades.life_list(accolades._winning_guesses(self.user))
+        self.assertEqual(life["count"], 2)
+        self.assertEqual(
+            life["families"],
+            [
+                {"family": "Owls", "species": ["owl"]},
+                {"family": "Thrushes", "species": ["robin"]},
+            ],
+        )
+
+    def test_world_traveler_requires_every_fixed_region_same_day(self):
+        eu = Region.objects.create(code="eu", name="Europe")
+        custom = Region.objects.create(code="custom", name="My Region")
+        fixed = {"world", "eu"}
+        self.play(self.bird("a"), date(2024, 1, 1), won=True)
+        self.play(self.bird("b"), date(2024, 1, 1), won=False, region=eu)
+        self.play(self.bird("c"), date(2024, 1, 1), won=True, region=custom)
+        wins = list(accolades._winning_guesses(self.user))
+        self.assertFalse(accolades.world_traveler(wins, fixed)["earned"])
+
+        self.play(self.bird("d"), date(2024, 1, 2), won=True)
+        self.play(self.bird("e"), date(2024, 1, 2), won=True, region=eu)
+        wins = list(accolades._winning_guesses(self.user))
+        result = accolades.world_traveler(wins, fixed)
+        self.assertEqual(result, {"earned": True, "count": 1, "latest": date(2024, 1, 2)})
+
+    def test_catch_em_all_progress_and_earned(self):
+        owls = [self.bird(f"owl{i}", "Owls") for i in range(2)]
+        ducks = [self.bird(f"duck{i}", "Ducks") for i in range(3)]
+        for bird in owls + ducks:
+            BirdRegion.objects.create(bird=bird, region=self.world)
+        self.play(owls[0], date(2024, 1, 1), won=True)
+        self.play(ducks[0], date(2024, 1, 2), won=True)
+        result = accolades.catch_em_all(self.usergames(), "world")
+        self.assertFalse(result["earned"])
+        self.assertEqual(result["best"], {"family": "Owls", "won": 1, "total": 2})
+
+        self.play(owls[1], date(2024, 1, 3), won=True)
+        result = accolades.catch_em_all(self.usergames(), "world")
+        self.assertTrue(result["earned"])
+        self.assertEqual(result["families"], [{"family": "Owls", "won": 2, "total": 2}])
+
+    def test_awards_best_worst_family_and_streaks(self):
+        families = [
+            {"family": "Ducks", "games": 3, "wins": 3, "win_pct": 1.0},
+            {"family": "Owls", "games": 4, "wins": 1, "win_pct": 0.25},
+            {"family": "Gulls", "games": 2, "wins": 0, "win_pct": 0.0},  # under the minimum
+        ]
+        tiles = accolades.awards(
+            families,
+            {"earned": False, "families": [], "best": None},
+            {"earned": False, "count": 0, "latest": None},
+            best_streak=30,
+        )
+        by_title = {t["title"]: t for t in tiles}
+        self.assertIn("Ducks", by_title["Best Family"]["detail"])
+        self.assertIn("Owls", by_title["Worst Family"]["detail"])
+        self.assertTrue(by_title["7-Day Streak"]["earned"])
+        self.assertTrue(by_title["30-Day Streak"]["earned"])
+        self.assertFalse(by_title["100-Day Streak"]["earned"])
+
+    def stats_page(self):
+        self.client.force_login(self.user)
+        session = self.client.session
+        session["username"] = self.user.username
+        session.save()
+        return self.client.get("/world/stats/")
+
+    def test_non_premium_user_gets_teaser_not_detailed(self):
+        response = self.stats_page()
+        self.assertNotIn("detailed", response.context)
+        self.assertContains(response, "Go Premium")
+        self.assertNotContains(response, "Accuracy by Family")
+
+    def test_premium_user_gets_detailed_and_cache_invalidates_on_guess(self):
+        Membership.objects.create(
+            user=self.user, comp_until=django_timezone.now() + timedelta(days=30)
+        )
+        bird = self.bird("robin", "Thrushes")
+        self.play(bird, date(2024, 1, 1), won=True)
+        response = self.stats_page()
+        self.assertContains(response, "Accuracy by Family")
+        self.assertEqual(response.context["detailed"]["life_list"]["count"], 1)
+
+        # A cached page from before the user went premium is recomputed.
+        cache.set(_stats_cache_key(self.user.username, "world"), {"games_played": 1})
+        self.assertIn("detailed", self.stats_page().context)
+
+        # A new guess clears the cache so the next view reflects it.
+        with patch("birdle.views.get_bird_images", return_value=[]):
+            game = Game.objects.create(date=date(2024, 1, 2), bird=self.bird("wren", "Wrens"))
+            with patch("birdle.views.todays_game", return_value=game):
+                self.client.post("/world/", {"guess-input": "wren"})
+        self.assertIsNone(cache.get(_stats_cache_key(self.user.username, "world")))
+        self.assertEqual(self.stats_page().context["detailed"]["life_list"]["count"], 2)

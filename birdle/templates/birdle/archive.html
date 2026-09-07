@@ -1,0 +1,47 @@
+<!-- archive.html -->
+
+{% extends 'birdle/base.html' %}
+
+{% block content %}
+<div class="container pt-2">
+  <div class="col-12 col-lg-6 mx-auto">
+    <h3 class="text-center">Archive ({{ region_code|region_name }})</h3>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      {% if prev_month %}
+      <a class="btn btn-sm btn-outline-secondary" href="?month={{ prev_month|date:'Y-m' }}" aria-label="Previous month">&laquo;</a>
+      {% else %}<span class="btn btn-sm btn-outline-secondary disabled">&laquo;</span>{% endif %}
+      <strong>{{ month|date:"F Y" }}</strong>
+      {% if next_month %}
+      <a class="btn btn-sm btn-outline-secondary" href="?month={{ next_month|date:'Y-m' }}" aria-label="Next month">&raquo;</a>
+      {% else %}<span class="btn btn-sm btn-outline-secondary disabled">&raquo;</span>{% endif %}
+    </div>
+    <table class="table table-bordered text-center archive-calendar">
+      <thead>
+        <tr><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th></tr>
+      </thead>
+      <tbody>
+        {% for week in weeks %}
+        <tr>
+          {% for cell in week %}
+          {% if not cell %}
+          <td class="bg-body-tertiary"></td>
+          {% elif not cell.date %}
+          <td class="text-body-tertiary">{{ cell.day }}</td>
+          {% else %}
+          <td class="p-0 {% if cell.result == 'Win' %}table-success{% elif cell.result == 'Loss' %}table-danger{% elif cell.result == 'In progress' %}table-warning{% endif %}">
+            <a class="d-block p-2 text-decoration-none text-reset"
+               href="{% url 'archive_game' region_code cell.date|date:'Y-m-d' %}"
+               title="{{ cell.result }}{% if cell.bird %}: {{ cell.bird }}{% endif %}">
+              <div>{{ cell.day }}</div>
+              <small class="d-block text-truncate">{% if cell.bird %}{{ cell.bird }}{% else %}{{ cell.result }}{% endif %}</small>
+            </a>
+          </td>
+          {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

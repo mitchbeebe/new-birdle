@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 # Public code for a premium user's custom region; resolved per user to ``custom-<pk>``.
 CUSTOM_REGION_CODE = "custom"
-CUSTOM_REGION_NAME = "Custom (near me)"
+CUSTOM_REGION_NAME = "Near me"
 # Paths under /<region>/ that the region switcher preserves when changing regions.
 REGION_PAGE_SUFFIXES = {"stats", "archive"}
 
@@ -68,9 +68,8 @@ def resolve_region_code(request, region_code):
     if not premium_lib.is_premium(request.user):
         return redirect("premium")
     custom = CustomRegion.objects.filter(user=request.user).first()
-    if custom is None:
-        raise Http404("Region not found")
-    if custom.species_count == 0:
+    if custom is None or custom.species_count == 0:
+        # Not set up yet: send them to the profile to build it.
         return redirect("profile")
     return custom.region.code
 
@@ -298,9 +297,9 @@ def custom_region(request):
         custom = region_form.save(commit=False)
         if custom.region_id is None:
             custom.user = request.user
-            custom.region = Region.objects.create(code=custom_region_db_code(request.user), name="")
-        custom.region.name = f"Near {custom.lat}, {custom.lng}"
-        custom.region.save(update_fields=["name"])
+            custom.region = Region.objects.create(
+                code=custom_region_db_code(request.user), name=CUSTOM_REGION_NAME
+            )
         custom.save()
     try:
         ebird.build_pool(custom)
@@ -769,7 +768,8 @@ def region(request):
     regions = nav_regions(request.user)
     resolved = resolve_region_code(request, region_code)
     if isinstance(resolved, HttpResponse):
-        return resolved
+        # htmx would swap a followed redirect into the nav; tell it to navigate instead.
+        return HttpResponse(headers={"HX-Redirect": resolved["Location"]})
 
     request.session["region_code"] = region_code
 

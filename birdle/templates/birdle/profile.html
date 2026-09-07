@@ -39,7 +39,7 @@
 {% endif %}
 {% if custom_region %}
 <div class="alert {% if custom_region.species_count < 10 %}alert-warning{% else %}alert-success{% endif %} py-2 small">
-    {{ custom_region.region.name }}: {{ custom_region.species_count }} species
+    {{ custom_region.lat }}, {{ custom_region.lng }}: {{ custom_region.species_count }} species
     {% if custom_region.built_at %}(built {{ custom_region.built_at|date:"M j, Y" }}){% endif %}.
     {% if custom_region.species_count < 10 %}That's a small pool &mdash; few species have been reported nearby recently.{% endif %}
     {% if custom_region.species_count > 0 %}<a href="/custom/">Play it</a>{% endif %}

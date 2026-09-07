@@ -656,7 +656,7 @@ class CustomRegionTests(TestCase):
         fetch.assert_called_once()
         custom = CustomRegion.objects.get(user=self.user)
         self.assertEqual(custom.region.code, f"custom-{self.user.pk}")
-        self.assertEqual(custom.region.name, "Near 40.71, -74.01")
+        self.assertEqual(custom.region.name, "Near me")
         self.assertEqual(custom.species_count, 2)
         self.assertIsNotNone(custom.built_at)
         self.assertEqual(self.pool(), {self.birds[0].id, self.birds[2].id})
@@ -714,9 +714,17 @@ class CustomRegionTests(TestCase):
         self.assertRedirects(response, "/premium/")
         self.assertNotContains(self.client.get("/accounts/profile/"), "Custom region")
 
-    def test_premium_without_region_gets_404(self):
+    def test_premium_without_region_redirected_to_profile(self):
         self.go_premium()
-        self.assertEqual(self.client.get("/custom/").status_code, 404)
+        self.assertRedirects(self.client.get("/custom/"), "/accounts/profile/")
+        response = self.client.post(
+            "/region",
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TRIGGER_NAME="custom",
+            HTTP_HX_CURRENT_URL="http://testserver/world/",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["HX-Redirect"], "/accounts/profile/")
 
     def test_premium_user_can_play_and_see_stats(self):
         self.go_premium()
@@ -728,7 +736,7 @@ class CustomRegionTests(TestCase):
         self.assertEqual(game.bird, self.birds[0])
         self.assertEqual(
             response.context["emojis"],
-            f"Near 40.71, -74.01 Birdle\n{game.date}\n\nhttps://www.play-birdle.com/custom/",
+            f"Near me Birdle\n{game.date}\n\nhttps://www.play-birdle.com/custom/",
         )
 
         # Autocomplete only offers the pool.
@@ -750,9 +758,9 @@ class CustomRegionTests(TestCase):
     def test_fixed_regions_unaffected(self):
         self.assertEqual(self.client.get("/nope/").status_code, 404)
         self.assertEqual(self.client.get("/custom-1/").status_code, 404)
-        self.assertNotContains(self.client.get("/premium/"), "Custom (near me)")
+        self.assertNotContains(self.client.get("/premium/"), "Near me")
         self.go_premium()
-        self.assertContains(self.client.get("/premium/"), "Custom (near me)")
+        self.assertContains(self.client.get("/premium/"), "Near me")
 
     def test_region_switcher_from_profile_goes_home(self):
         self.go_premium()

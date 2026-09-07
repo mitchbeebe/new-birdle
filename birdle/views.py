@@ -102,7 +102,12 @@ def daily_bird(request, region_code=None):
 
     user_tz = get_user_timezone(request)
     game = todays_game(region_code, tz=user_tz)
+    user = _session_user(request)
+    usergame, _ = UserGame.objects.get_or_create(user=user, game=game)
+    return _play(request, game, usergame, region_code)
 
+
+def _session_user(request):
     # Get user if available
     old_username = request.POST.get("user_id")
     if old_username:
@@ -111,9 +116,11 @@ def daily_bird(request, region_code=None):
         username = request.session.get("username", int(datetime.now().timestamp() * 100))
     user, _ = User.objects.get_or_create(username=username)
     request.session["username"] = user.username
+    return user
 
-    usergame, _ = UserGame.objects.get_or_create(user=user, game=game)
 
+def _play(request, game, usergame, region_code, archive=False):
+    user = usergame.user
     if request.method == "GET":
         imgs = get_bird_images(bird=game.bird, game=game)
         # Get past guesses
@@ -142,6 +149,8 @@ def daily_bird(request, region_code=None):
             "guess_count": usergame.guess_count,
             "emojis": build_results_emojis(game, guesses),
             "hint": get_hint_data(usergame.guess_count, game.bird, usergame.is_winner),
+            "archive": archive,
+            "game_date": game.date,
         }
         return render(request, "birdle/daily_bird.html", context)
 

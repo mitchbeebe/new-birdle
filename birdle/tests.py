@@ -1,5 +1,6 @@
 import json
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from unittest.mock import patch
 
 from allauth.socialaccount.adapter import get_adapter as get_socialaccount_adapter
@@ -22,6 +23,7 @@ from .models import (
     UserGame,
 )
 from .ebird import EbirdError, fetch_nearby_species_codes
+from .geocode import GeocodeError, lookup
 from .premium import premium_required
 from .signals import merge_anonymous_history
 from .views import random_bird
@@ -695,7 +697,40 @@ class CustomRegionTests(TestCase):
     def test_invalid_coordinates_rejected(self):
         self.go_premium()
         response, fetch = self.build(["amerob"], {**self.FORM, "lat": "91"})
-        self.assertContains(response, "Latitude must be")
+        self.assertContains(response, "out of range")
+        fetch.assert_not_called()
+        self.assertFalse(CustomRegion.objects.exists())
+
+    def test_typed_location_is_geocoded(self):
+        self.go_premium()
+        with patch(
+            "birdle.geocode.lookup", return_value=(Decimal("45.52"), Decimal("-122.67"), "Portland")
+        ) as lookup:
+            response, fetch = self.build(["amerob"], {"location": "Portland, OR"})
+        self.assertRedirects(response, "/accounts/profile/")
+        lookup.assert_called_once_with("Portland, OR")
+        custom = CustomRegion.objects.get(user=self.user)
+        self.assertEqual(
+            (custom.lat, custom.lng, custom.location),
+            (Decimal("45.52"), Decimal("-122.67"), "Portland"),
+        )
+        self.assertEqual(fetch.call_args.args[:2], (Decimal("45.52"), Decimal("-122.67")))
+        self.assertContains(self.client.get("/accounts/profile/"), "Portland: 1 species")
+
+    def test_geolocation_coordinates_skip_geocoding(self):
+        self.go_premium()
+        with patch("birdle.geocode.lookup") as lookup:
+            self.build(["amerob"], {**self.FORM, "location": "ignored"})
+        lookup.assert_not_called()
+        self.assertEqual(CustomRegion.objects.get(user=self.user).location, "")
+
+    def test_location_errors_render_as_form_errors(self):
+        self.go_premium()
+        response, fetch = self.build(["amerob"], {"location": ""})
+        self.assertContains(response, "Enter a location")
+        with patch("birdle.geocode.lookup", side_effect=GeocodeError("No place matched zzqq")):
+            response, fetch = self.build(["amerob"], {"location": "zzqq"})
+        self.assertContains(response, "No place matched zzqq")
         fetch.assert_not_called()
         self.assertFalse(CustomRegion.objects.exists())
 
@@ -890,3 +925,40 @@ class FetchNearbySpeciesCodesTests(TestCase):
     def test_unconfigured_raises(self):
         with self.assertRaises(EbirdError):
             fetch_nearby_species_codes("1", "2")
+
+
+class GeocodeLookupTests(TestCase):
+    def fake(self, payload, status=200):
+        return type("R", (), {"status_code": status, "json": lambda self: payload})()
+
+    @override_settings(LATLNG_API_KEY="k")
+    def test_parses_best_match(self):
+        payload = {
+            "features": [
+                {
+                    "geometry": {"coordinates": [-122.674194, 45.5202471]},
+                    "properties": {
+                        "name": "Portland",
+                        "state": "Oregon",
+                        "country": "United States",
+                    },
+                }
+            ]
+        }
+        with patch("birdle.geocode.requests.get", return_value=self.fake(payload)) as get:
+            self.assertEqual(
+                lookup("Portland, OR"),
+                (Decimal("45.52"), Decimal("-122.67"), "Portland, Oregon, United States"),
+            )
+        self.assertEqual(get.call_args.kwargs["headers"], {"X-Api-Key": "k"})
+
+    @override_settings(LATLNG_API_KEY="k")
+    def test_no_match_raises(self):
+        with patch("birdle.geocode.requests.get", return_value=self.fake({"features": []})):
+            with self.assertRaises(GeocodeError):
+                lookup("nowhere")
+
+    @override_settings(LATLNG_API_KEY="")
+    def test_unconfigured_raises(self):
+        with self.assertRaises(GeocodeError):
+            lookup("Portland")

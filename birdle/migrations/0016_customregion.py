@@ -21,6 +21,7 @@ class Migration(migrations.Migration):
                         auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
                     ),
                 ),
+                ("location", models.CharField(blank=True, max_length=200)),
                 ("lat", models.DecimalField(decimal_places=2, max_digits=5)),
                 ("lng", models.DecimalField(decimal_places=2, max_digits=6)),
                 ("species_count", models.PositiveIntegerField(default=0)),

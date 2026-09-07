@@ -168,6 +168,7 @@ class CustomRegion(models.Model):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     region = models.OneToOneField(Region, on_delete=models.CASCADE)
+    location = models.CharField(max_length=200, blank=True)  # place name, if typed
     lat = models.DecimalField(max_digits=5, decimal_places=2)
     lng = models.DecimalField(max_digits=6, decimal_places=2)
     species_count = models.PositiveIntegerField(default=0)

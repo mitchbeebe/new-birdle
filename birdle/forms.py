@@ -3,6 +3,7 @@ from typing import cast
 from django import forms
 from django.contrib.auth.models import User
 
+from . import geocode
 from .models import Bird, BirdRegion, CustomRegion, Region
 
 
@@ -63,26 +64,42 @@ class UsernameForm(forms.ModelForm):
 
 
 class CustomRegionForm(forms.ModelForm):
+    """Either a typed place (geocoded server-side) or lat/lng filled by browser geolocation."""
+
     class Meta:
         model = CustomRegion
-        fields = ["lat", "lng"]
-        labels = {
-            "lat": "Latitude",
-            "lng": "Longitude",
-        }
+        fields = ["location", "lat", "lng"]
+        labels = {"location": "Your location"}
         widgets = {
-            "lat": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
-            "lng": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+            "location": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "City, address, or place name",
+                    "autocomplete": "off",
+                }
+            ),
+            "lat": forms.HiddenInput(),
+            "lng": forms.HiddenInput(),
         }
 
-    def clean_lat(self):
-        lat = self.cleaned_data["lat"]
-        if not -90 <= lat <= 90:
-            raise forms.ValidationError("Latitude must be between -90 and 90.")
-        return lat
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["lat"].required = False
+        self.fields["lng"].required = False
 
-    def clean_lng(self):
-        lng = self.cleaned_data["lng"]
-        if not -180 <= lng <= 180:
-            raise forms.ValidationError("Longitude must be between -180 and 180.")
-        return lng
+    def clean(self):
+        cleaned = super().clean() or {}
+        lat, lng = cleaned.get("lat"), cleaned.get("lng")
+        location = (cleaned.get("location") or "").strip()
+        if lat is not None and lng is not None:
+            if not -90 <= lat <= 90 or not -180 <= lng <= 180:
+                raise forms.ValidationError("That location is out of range.")
+            cleaned["location"] = ""  # coordinates came from the device, not a typed place
+            return cleaned
+        if not location:
+            raise forms.ValidationError("Enter a location or use your device's location.")
+        try:
+            cleaned["lat"], cleaned["lng"], cleaned["location"] = geocode.lookup(location)
+        except geocode.GeocodeError as exc:
+            raise forms.ValidationError(str(exc))
+        return cleaned

@@ -1421,14 +1421,14 @@ class LeaderboardTests(TestCase):
         self.anon = User.objects.create_user("17000000000", "", "pw")
         self.birds = [make_bird(f"bird-{i}") for i in range(12)]
 
-    def play(self, user, days_ago, guesses, won=True, region=None):
+    def play(self, user, days_ago, guesses, won=True, region=None, is_archive=False):
         """Record a game `days_ago` days back with `guesses` guesses, last one correct if won."""
         game_date = self.today - timedelta(days=days_ago)
         region = region or self.region
         game, _ = Game.objects.get_or_create(
             date=game_date, region=region, defaults={"bird": self.birds[days_ago % 12]}
         )
-        usergame = UserGame.objects.create(user=user, game=game)
+        usergame = UserGame.objects.create(user=user, game=game, is_archive=is_archive)
         for i in range(guesses):
             correct = won and i == guesses - 1
             bird = game.bird if correct else self.birds[(days_ago + i + 1) % 12]
@@ -1480,6 +1480,14 @@ class LeaderboardTests(TestCase):
             leaderboards.weighted_wins("world", None, None), [(self.alice.pk, "alice", 4)]
         )
         self.assertEqual(leaderboards.streaks("world", self.today), [(self.alice.pk, "alice", 1)])
+
+    def test_archive_games_excluded(self):
+        self.play(self.alice, 0, 1, is_archive=True)
+        self.play(self.alice, 1, 1, is_archive=True)
+        self.play(self.bob, 0, 3)
+        self.assertEqual(leaderboards.played("world", None, None), [(self.bob.pk, "bob", 1)])
+        self.assertEqual(leaderboards.weighted_wins("world", None, None), [(self.bob.pk, "bob", 4)])
+        self.assertEqual(leaderboards.streaks("world", self.today), [(self.bob.pk, "bob", 1)])
 
     def test_rank_of(self):
         rows = [(self.bob.pk, "bob", 5), (self.alice.pk, "alice", 2)]

@@ -18,9 +18,8 @@ TOP_N = 25
 
 
 def _usergames(region_code):
-    # TODO(MIT-5): filter is_archive=False once the archive field lands.
     return (
-        UserGame.objects.filter(game__region__code=region_code)
+        UserGame.objects.filter(game__region__code=region_code, is_archive=False)
         .exclude(user__email="")
         .annotate(
             num_guesses=Count("guess"),

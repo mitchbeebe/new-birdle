@@ -107,6 +107,10 @@
             <li><hr class="dropdown-divider"></li>
             {% if user.is_authenticated %}
             <li class="nav-item"><a class="nav-link" href="{% url 'profile' %}"><i class="fas fa-user"></i> {{ user.username }}{% if premium_member %} <i class="fas fa-star text-warning" title="Premium"></i>{% endif %}</a></li>
+            {% if premium_member %}
+            {% friend_request_count as friend_requests %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'friends' %}"><i class="fas fa-user-friends"></i> Friends{% if friend_requests %} <span class="badge rounded-pill text-bg-danger">{{ friend_requests }}</span>{% endif %}</a></li>
+            {% endif %}
             {% else %}
             <li class="nav-item"><a class="nav-link" href="{% url 'account_login' %}"><i class="fas fa-sign-in-alt"></i> Log in</a></li>
             {% endif %}

@@ -1,0 +1,63 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Friends{% endblock %}
+
+{% block card_body %}
+{% for message in messages %}
+<div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} py-2">{{ message }}</div>
+{% endfor %}
+
+<form method="post" action="{% url 'friend_request' %}" class="mb-4">
+    {% csrf_token %}
+    <label for="friend-username" class="form-label">Add a friend</label>
+    <div class="input-group">
+        <input type="text" id="friend-username" name="username" class="form-control" placeholder="Exact username" required autocomplete="off">
+        <button type="submit" class="btn btn-primary">Send request</button>
+    </div>
+</form>
+
+{% if incoming %}
+<h2 class="h6">Requests</h2>
+<ul class="list-group mb-4">
+    {% for req in incoming %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ req.from_user.username }}
+        <span class="d-flex gap-1">
+            <form method="post" action="{% url 'friend_accept' req.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-primary">Accept</button>
+            </form>
+            <form method="post" action="{% url 'friend_decline' req.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Decline</button>
+            </form>
+        </span>
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<h2 class="h6">Your friends</h2>
+<ul class="list-group mb-4">
+    {% for friendship, friend in friends %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ friend.username }}
+        <form method="post" action="{% url 'friend_remove' friendship.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+        </form>
+    </li>
+    {% empty %}
+    <li class="list-group-item text-body-secondary">No friends yet.</li>
+    {% endfor %}
+</ul>
+
+{% if outgoing %}
+<h2 class="h6">Sent</h2>
+<ul class="list-group">
+    {% for req in outgoing %}
+    <li class="list-group-item text-body-secondary">{{ req.to_user.username }} &middot; pending</li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

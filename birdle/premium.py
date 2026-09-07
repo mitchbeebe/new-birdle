@@ -45,12 +45,12 @@ def create_customer(user) -> str:
 
 
 def find_subscription(customer_id):
-    """Return the customer's newest non-canceled subscription, or None."""
+    """Return the customer's newest non-canceled subscription as a dict, or None."""
     _configure()
     subs = stripe.Subscription.list(customer=customer_id, status="all", limit=10)
     for sub in subs.data:
         if sub.status not in {"canceled", "incomplete_expired"}:
-            return sub
+            return sub.to_dict()
     return None
 
 

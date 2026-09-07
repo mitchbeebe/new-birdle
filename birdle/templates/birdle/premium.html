@@ -10,7 +10,7 @@
 {% elif membership.current_period_end %}
 <p class="text-body-secondary">
   {% if membership.status == "trialing" %}Trial ends{% else %}Renews{% endif %}
-  {{ membership.current_period_end|date:"M j, Y" }}.
+  {{ membership.current_period_end|date:"M j, Y" }} at $1/month.
 </p>
 {% endif %}
 {% else %}

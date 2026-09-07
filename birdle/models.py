@@ -91,6 +91,8 @@ class Game(models.Model):
 class UserGame(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     game = models.ForeignKey(Game, on_delete=models.CASCADE)
+    # Played from the archive after the day passed; excluded from streaks and stats
+    is_archive = models.BooleanField(default=False)
 
     if TYPE_CHECKING:
         # Annotated dynamically via .annotate() in birdle/views.py for stats queries

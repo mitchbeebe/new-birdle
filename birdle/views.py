@@ -573,7 +573,7 @@ def premium_checkout(request):
         membership.save(update_fields=["stripe_customer_id"])
     url = premium_lib.create_checkout_session(
         membership.stripe_customer_id,
-        request.user.id,
+        request.user.pk,
         request.build_absolute_uri(reverse("premium_success")),
         request.build_absolute_uri(reverse("premium")),
     )

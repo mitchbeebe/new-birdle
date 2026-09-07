@@ -1,11 +1,16 @@
-from datetime import date, timedelta
+import json
+from datetime import date, datetime, timedelta, timezone
+from unittest.mock import patch
 
 from allauth.socialaccount.adapter import get_adapter as get_socialaccount_adapter
 from allauth.socialaccount.models import SocialAccount, SocialLogin
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AnonymousUser, User
+from django.http import HttpResponse
 from django.test import RequestFactory, TestCase, override_settings
+from django.utils import timezone as django_timezone
 
-from .models import Bird, BirdRegion, Game, Guess, Region, UserGame
+from .models import Bird, BirdRegion, Game, Guess, Membership, Region, UserGame
+from .premium import premium_required
 from .signals import merge_anonymous_history
 from .views import random_bird
 
@@ -243,3 +248,201 @@ class AccountPagesSmokeTests(TestCase):
         self.client.force_login(user)
         response = self.assert_styled("/accounts/email/")
         self.assertContains(response, 'class="card-body"')
+
+
+@premium_required
+def gated_view(request):
+    return HttpResponse("ok")
+
+
+class PremiumGateTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("alice", "alice@example.com", "s3cret-pass")
+        self.factory = RequestFactory()
+
+    def call(self, user):
+        request = self.factory.get("/gated/")
+        request.user = user
+        return gated_view(request)
+
+    def test_anonymous_redirected_to_login(self):
+        response = self.call(AnonymousUser())
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response["Location"].startswith("/accounts/login/"))
+
+    def test_non_premium_redirected_to_premium_page(self):
+        response = self.call(self.user)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/premium/")
+
+    def test_comp_user_passes(self):
+        Membership.objects.create(
+            user=self.user, comp_until=django_timezone.now() + timedelta(days=1)
+        )
+        self.assertEqual(self.call(self.user).status_code, 200)
+
+    def test_active_stripe_status_passes(self):
+        Membership.objects.create(
+            user=self.user,
+            status="active",
+            current_period_end=django_timezone.now() + timedelta(days=30),
+        )
+        self.assertEqual(self.call(self.user).status_code, 200)
+
+    def test_past_due_fails(self):
+        Membership.objects.create(
+            user=self.user,
+            status="past_due",
+            current_period_end=django_timezone.now() + timedelta(days=30),
+        )
+        self.assertEqual(self.call(self.user).status_code, 302)
+
+    def test_expired_period_fails(self):
+        Membership.objects.create(
+            user=self.user,
+            status="active",
+            current_period_end=django_timezone.now() - timedelta(days=1),
+        )
+        self.assertEqual(self.call(self.user).status_code, 302)
+
+    def test_expired_comp_fails(self):
+        Membership.objects.create(
+            user=self.user, comp_until=django_timezone.now() - timedelta(days=1)
+        )
+        self.assertEqual(self.call(self.user).status_code, 302)
+
+
+class StripeWebhookTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("alice", "alice@example.com", "s3cret-pass")
+
+    def post_event(self, event):
+        with patch("birdle.premium.stripe.Webhook.construct_event", return_value=event):
+            return self.client.post(
+                "/premium/webhook/",
+                data=json.dumps(event),
+                content_type="application/json",
+                HTTP_STRIPE_SIGNATURE="sig",
+            )
+
+    def test_checkout_completed_stores_ids(self):
+        response = self.post_event(
+            {
+                "type": "checkout.session.completed",
+                "data": {
+                    "object": {
+                        "id": "cs_1",
+                        "client_reference_id": str(self.user.pk),
+                        "customer": "cus_1",
+                        "subscription": "sub_1",
+                    }
+                },
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        membership = Membership.objects.get(user=self.user)
+        self.assertEqual(membership.stripe_customer_id, "cus_1")
+        self.assertEqual(membership.stripe_subscription_id, "sub_1")
+
+    def test_subscription_updated_sets_status_and_period_end(self):
+        Membership.objects.create(user=self.user, stripe_customer_id="cus_1")
+        period_end = datetime(2030, 1, 1, tzinfo=timezone.utc)
+        response = self.post_event(
+            {
+                "type": "customer.subscription.updated",
+                "data": {
+                    "object": {
+                        "id": "sub_1",
+                        "customer": "cus_1",
+                        "status": "active",
+                        "current_period_end": int(period_end.timestamp()),
+                    }
+                },
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        membership = Membership.objects.get(user=self.user)
+        self.assertEqual(membership.status, "active")
+        self.assertEqual(membership.stripe_subscription_id, "sub_1")
+        self.assertEqual(membership.current_period_end, period_end)
+        self.assertTrue(membership.is_active)
+
+    def test_period_end_read_from_items_when_missing_on_subscription(self):
+        Membership.objects.create(user=self.user, stripe_customer_id="cus_1")
+        period_end = datetime(2030, 1, 1, tzinfo=timezone.utc)
+        self.post_event(
+            {
+                "type": "customer.subscription.created",
+                "data": {
+                    "object": {
+                        "id": "sub_1",
+                        "customer": "cus_1",
+                        "status": "trialing",
+                        "items": {"data": [{"current_period_end": int(period_end.timestamp())}]},
+                    }
+                },
+            }
+        )
+        membership = Membership.objects.get(user=self.user)
+        self.assertEqual(membership.current_period_end, period_end)
+
+    def test_bad_signature_returns_400(self):
+        with patch("birdle.premium.stripe.Webhook.construct_event", side_effect=ValueError("bad")):
+            response = self.client.post(
+                "/premium/webhook/", data="{}", content_type="application/json"
+            )
+        self.assertEqual(response.status_code, 400)
+
+    def test_unknown_customer_returns_200(self):
+        response = self.post_event(
+            {
+                "type": "customer.subscription.deleted",
+                "data": {"object": {"id": "sub_x", "customer": "cus_x", "status": "canceled"}},
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Membership.objects.exists())
+
+
+@plain_static_storage
+@override_settings(STRIPE_ENABLED=False)
+class PremiumPagesTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("alice", "alice@example.com", "s3cret-pass")
+
+    def test_anonymous_sees_login_prompt(self):
+        response = self.client.get("/premium/")
+        self.assertContains(response, "Log in to subscribe")
+
+    def test_non_premium_sees_unavailable_when_stripe_disabled(self):
+        self.client.force_login(self.user)
+        response = self.client.get("/premium/")
+        self.assertContains(response, "Subscriptions aren't available yet")
+
+    @override_settings(STRIPE_ENABLED=True)
+    def test_non_premium_sees_subscribe_button_when_enabled(self):
+        self.client.force_login(self.user)
+        response = self.client.get("/premium/")
+        self.assertContains(response, "/premium/checkout/")
+
+    def test_premium_user_sees_status(self):
+        Membership.objects.create(
+            user=self.user,
+            status="active",
+            stripe_customer_id="cus_1",
+            current_period_end=django_timezone.now() + timedelta(days=30),
+        )
+        self.client.force_login(self.user)
+        response = self.client.get("/premium/")
+        self.assertContains(response, "Premium member")
+        self.assertContains(response, "/premium/portal/")
+
+    def test_checkout_returns_503_when_stripe_not_configured(self):
+        self.client.force_login(self.user)
+        response = self.client.post("/premium/checkout/")
+        self.assertEqual(response.status_code, 503)
+
+    def test_success_page_renders(self):
+        self.client.force_login(self.user)
+        response = self.client.get("/premium/success/")
+        self.assertContains(response, "Go to Premium")

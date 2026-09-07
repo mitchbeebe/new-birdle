@@ -40,7 +40,7 @@ def _configure():
 
 def create_customer(user) -> str:
     _configure()
-    customer = stripe.Customer.create(email=user.email, metadata={"user_id": str(user.id)})
+    customer = stripe.Customer.create(email=user.email, metadata={"user_id": str(user.pk)})
     return customer.id
 
 

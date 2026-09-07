@@ -713,17 +713,10 @@ def get_regions():
     return region_dict
 
 
-def nav_regions(user):
-    """Regions shown in the nav dropdown: fixed ones, plus custom for premium members."""
-    regions = get_regions()
-    if premium_lib.is_premium(user):
-        regions[CUSTOM_REGION_CODE] = CUSTOM_REGION_NAME
-    return regions
-
-
-@register.simple_tag(takes_context=True)
-def get_nav_regions(context):
-    return nav_regions(context["user"])
+@register.simple_tag
+def get_nav_regions():
+    """Regions shown in the nav dropdown; the template disables custom for non-members."""
+    return {**get_regions(), CUSTOM_REGION_CODE: CUSTOM_REGION_NAME}
 
 
 @register.simple_tag
@@ -762,7 +755,7 @@ def region(request):
     region_code = request.htmx.trigger_name
 
     # Validate region code
-    regions = nav_regions(request.user)
+    regions = get_nav_regions()
     resolved = resolve_region_code(request, region_code)
     if isinstance(resolved, HttpResponse):
         # htmx would swap a followed redirect into the nav; tell it to navigate instead.
@@ -953,8 +946,9 @@ def build_results_emojis(game, guesses):
         row = "".join(["🐦" if i else "❌" for i in taxonomy]) + used_hint
         results.append(row)
     emojis = "\n".join(results)
-    code = CUSTOM_REGION_CODE if region.code.startswith(f"{CUSTOM_REGION_CODE}-") else region.code
-    link = f"https://www.play-birdle.com/{code}/"
+    # A custom region is private to its owner, so point others at the premium page instead.
+    is_custom = region.code.startswith(f"{CUSTOM_REGION_CODE}-")
+    link = f"https://www.play-birdle.com/{'premium' if is_custom else region.code}/"
     return f"{region.name} Birdle\n{date}\n{emojis}\n{link}"
 
 

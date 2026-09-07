@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("birdle", "0014_membership"),
+        ("birdle", "0015_usergame_is_archive"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

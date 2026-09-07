@@ -58,7 +58,11 @@
             {% get_nav_regions as regions %}
             {% for code, name in regions.items %}
             <li>
+              {% if code == "custom" and not premium_member %}
+              <a href="{% url 'premium' %}" class="dropdown-item text-body-tertiary" title="Premium feature">{{name}} <span class="badge text-bg-warning">Premium</span></a>
+              {% else %}
               <a href="/{{code}}/" name={{code}} class="dropdown-item" hx-post="/region" hx-target="#region" hx-swap="innerHTML">{{name}}</a>
+              {% endif %}
             </li>
             {% endfor%}
           </ul>
@@ -79,6 +83,8 @@
             <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/stats/"><i class="fas fa-chart-column"></i> Stats</a></li>
             {% if premium_member %}
             <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/archive/"><i class="fas fa-box-archive"></i> Archive</a></li>
+            {% else %}
+            <li class="nav-item"><a class="nav-link text-body-tertiary" href="{% url 'premium' %}" title="Premium feature"><i class="fas fa-box-archive"></i> Archive <span class="badge text-bg-warning">Premium</span></a></li>
             {% endif %}
             <li class="nav-item"><a class="nav-link" href="/practice/"><i class="fas fa-graduation-cap"></i> Practice</a></li>
             <li class="nav-item"><a class="nav-link" href="/info/"><i class="fas fa-info-circle"></i> Info</a></li>

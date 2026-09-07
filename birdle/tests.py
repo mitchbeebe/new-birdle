@@ -712,7 +712,11 @@ class CustomRegionTests(TestCase):
         self.assertRedirects(self.client.get("/custom/stats/"), "/premium/")
         response = self.client.post("/accounts/profile/custom-region/", self.FORM)
         self.assertRedirects(response, "/premium/")
-        self.assertNotContains(self.client.get("/accounts/profile/"), "Custom region")
+        # The section is visible but disabled, pointing at the premium page.
+        profile = self.client.get("/accounts/profile/")
+        self.assertContains(profile, "Near me")
+        self.assertContains(profile, "<fieldset disabled>")
+        self.assertContains(profile, "This is a premium feature")
 
     def test_premium_without_region_redirected_to_profile(self):
         self.go_premium()
@@ -736,7 +740,7 @@ class CustomRegionTests(TestCase):
         self.assertEqual(game.bird, self.birds[0])
         self.assertEqual(
             response.context["emojis"],
-            f"Near me Birdle\n{game.date}\n\nhttps://www.play-birdle.com/custom/",
+            f"Near me Birdle\n{game.date}\n\nhttps://www.play-birdle.com/premium/",
         )
 
         # Autocomplete only offers the pool.
@@ -758,9 +762,15 @@ class CustomRegionTests(TestCase):
     def test_fixed_regions_unaffected(self):
         self.assertEqual(self.client.get("/nope/").status_code, 404)
         self.assertEqual(self.client.get("/custom-1/").status_code, 404)
-        self.assertNotContains(self.client.get("/premium/"), "Near me")
+        # Free users see the premium entries disabled, linking to the premium page.
+        page = self.client.get("/premium/")
+        self.assertContains(page, "Near me <span")
+        self.assertContains(page, "Archive <span")
+        self.assertNotContains(page, "name=custom")
         self.go_premium()
-        self.assertContains(self.client.get("/premium/"), "Near me")
+        page = self.client.get("/premium/")
+        self.assertContains(page, "name=custom")
+        self.assertContains(page, "/archive/")
 
     def test_region_switcher_from_profile_goes_home(self):
         self.go_premium()

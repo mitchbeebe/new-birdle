@@ -33,7 +33,7 @@
 {% if premium_member %}
 <hr>
 <h5>Custom region</h5>
-<p class="text-body-secondary small">Play a daily Birdle built from species reported to eBird near you. The species pool is frozen when built; rebuild it any time.</p>
+<p class="text-body-secondary small">Play a daily Birdle built from species reported to eBird near you. The pool is species reported within 25 km over the last two weeks, frozen when built; rebuild it any time.</p>
 {% if not ebird_enabled %}
 <div class="alert alert-secondary py-2 small">Custom regions aren't available yet.</div>
 {% endif %}
@@ -41,7 +41,7 @@
 <div class="alert {% if custom_region.species_count < 10 %}alert-warning{% else %}alert-success{% endif %} py-2 small">
     {{ custom_region.region.name }}: {{ custom_region.species_count }} species
     {% if custom_region.built_at %}(built {{ custom_region.built_at|date:"M j, Y" }}){% endif %}.
-    {% if custom_region.species_count < 10 %}That's a small pool &mdash; try a larger distance or more days back.{% endif %}
+    {% if custom_region.species_count < 10 %}That's a small pool &mdash; few species have been reported nearby recently.{% endif %}
     {% if custom_region.species_count > 0 %}<a href="/custom/">Play it</a>{% endif %}
 </div>
 {% endif %}
@@ -63,22 +63,6 @@
         </div>
     </div>
     <button type="button" class="btn btn-outline-secondary btn-sm mb-3" id="use-location"><i class="fas fa-location-crosshairs"></i> Use my location</button>
-    <div class="row g-2 mb-2">
-        <div class="col-6">
-            <label for="{{ region_form.dist.id_for_label }}" class="form-label">{{ region_form.dist.label }}</label>
-            {{ region_form.dist }}
-            {% for error in region_form.dist.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-        </div>
-        <div class="col-6">
-            <label for="{{ region_form.back.id_for_label }}" class="form-label">{{ region_form.back.label }}</label>
-            {{ region_form.back }}
-            {% for error in region_form.back.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-        </div>
-    </div>
-    <div class="form-check mb-3">
-        {{ region_form.include_provisional }}
-        <label for="{{ region_form.include_provisional.id_for_label }}" class="form-check-label">{{ region_form.include_provisional.label }}</label>
-    </div>
     <button type="submit" class="btn btn-primary w-100" {% if not ebird_enabled %}disabled{% endif %}>{% if custom_region %}Save &amp; rebuild pool{% else %}Build my region{% endif %}</button>
 </form>
 {% if custom_region %}

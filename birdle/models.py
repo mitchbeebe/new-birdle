@@ -170,9 +170,6 @@ class CustomRegion(models.Model):
     region = models.OneToOneField(Region, on_delete=models.CASCADE)
     lat = models.DecimalField(max_digits=5, decimal_places=2)
     lng = models.DecimalField(max_digits=6, decimal_places=2)
-    dist = models.PositiveSmallIntegerField(default=25)  # km, 1-50
-    back = models.PositiveSmallIntegerField(default=14)  # days, 1-30
-    include_provisional = models.BooleanField(default=False)
     species_count = models.PositiveIntegerField(default=0)
     built_at = models.DateTimeField(null=True, blank=True)
 

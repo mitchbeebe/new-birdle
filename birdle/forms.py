@@ -65,20 +65,14 @@ class UsernameForm(forms.ModelForm):
 class CustomRegionForm(forms.ModelForm):
     class Meta:
         model = CustomRegion
-        fields = ["lat", "lng", "dist", "back", "include_provisional"]
+        fields = ["lat", "lng"]
         labels = {
             "lat": "Latitude",
             "lng": "Longitude",
-            "dist": "Distance (km)",
-            "back": "Days back",
-            "include_provisional": "Include unreviewed (provisional) sightings",
         }
         widgets = {
             "lat": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
             "lng": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
-            "dist": forms.NumberInput(attrs={"class": "form-control", "min": 1, "max": 50}),
-            "back": forms.NumberInput(attrs={"class": "form-control", "min": 1, "max": 30}),
-            "include_provisional": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
     def clean_lat(self):
@@ -92,15 +86,3 @@ class CustomRegionForm(forms.ModelForm):
         if not -180 <= lng <= 180:
             raise forms.ValidationError("Longitude must be between -180 and 180.")
         return lng
-
-    def clean_dist(self):
-        dist = self.cleaned_data["dist"]
-        if not 1 <= dist <= 50:
-            raise forms.ValidationError("Distance must be between 1 and 50 km.")
-        return dist
-
-    def clean_back(self):
-        back = self.cleaned_data["back"]
-        if not 1 <= back <= 30:
-            raise forms.ValidationError("Days back must be between 1 and 30.")
-        return back

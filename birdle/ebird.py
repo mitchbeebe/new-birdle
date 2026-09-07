@@ -10,15 +10,18 @@ from .models import Bird, BirdRegion
 
 NEARBY_URL = "https://api.ebird.org/v2/data/obs/geo/recent"
 CACHE_TIMEOUT = 60 * 60 * 24
+# Fixed search window: 25 km radius, 14 days back, reviewed sightings only.
+DIST_KM = 25
+DAYS_BACK = 14
 
 
 class EbirdError(Exception):
     pass
 
 
-def fetch_nearby_species_codes(lat, lng, dist, back, include_provisional) -> list[str]:
-    """Species codes observed recently near (lat, lng). Cached for a day per parameter set."""
-    key = f"ebird:nearby:{lat}:{lng}:{dist}:{back}:{include_provisional}"
+def fetch_nearby_species_codes(lat, lng) -> list[str]:
+    """Species codes observed recently near (lat, lng). Cached for a day per location."""
+    key = f"ebird:nearby:{lat}:{lng}"
     codes = cache.get(key)
     if codes is not None:
         return codes
@@ -27,9 +30,9 @@ def fetch_nearby_species_codes(lat, lng, dist, back, include_provisional) -> lis
     params = {
         "lat": str(lat),
         "lng": str(lng),
-        "dist": dist,
-        "back": back,
-        "includeProvisional": "true" if include_provisional else "false",
+        "dist": DIST_KM,
+        "back": DAYS_BACK,
+        "includeProvisional": "false",
     }
     try:
         response = requests.get(
@@ -52,13 +55,7 @@ def fetch_nearby_species_codes(lat, lng, dist, back, include_provisional) -> lis
 
 def build_pool(custom_region) -> int:
     """Fetch nearby species and replace the region's pool with the ones Birdle knows about."""
-    codes = fetch_nearby_species_codes(
-        custom_region.lat,
-        custom_region.lng,
-        custom_region.dist,
-        custom_region.back,
-        custom_region.include_provisional,
-    )
+    codes = fetch_nearby_species_codes(custom_region.lat, custom_region.lng)
     birds = list(Bird.objects.filter(species_code__in=codes))
     with transaction.atomic():
         BirdRegion.objects.filter(region=custom_region.region).delete()

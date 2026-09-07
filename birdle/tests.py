@@ -621,7 +621,7 @@ class ArchiveTests(TestCase):
 @plain_static_storage
 @override_settings(EBIRD_API_KEY="test-key", EBIRD_ENABLED=True)
 class CustomRegionTests(TestCase):
-    FORM = {"lat": "40.71", "lng": "-74.01", "dist": 25, "back": 14}
+    FORM = {"lat": "40.71", "lng": "-74.01"}
 
     def setUp(self):
         Region.objects.get_or_create(code="world", defaults={"name": "World"})
@@ -694,9 +694,8 @@ class CustomRegionTests(TestCase):
 
     def test_invalid_coordinates_rejected(self):
         self.go_premium()
-        response, fetch = self.build(["amerob"], {**self.FORM, "lat": "91", "dist": 99})
+        response, fetch = self.build(["amerob"], {**self.FORM, "lat": "91"})
         self.assertContains(response, "Latitude must be")
-        self.assertContains(response, "Distance must be")
         fetch.assert_not_called()
         self.assertFalse(CustomRegion.objects.exists())
 
@@ -775,22 +774,25 @@ class FetchNearbySpeciesCodesTests(TestCase):
         payload = [{"speciesCode": "norcar"}, {"speciesCode": "amerob"}, {"speciesCode": "norcar"}]
         fake = type("R", (), {"status_code": 200, "json": lambda self: payload})()
         with patch("birdle.ebird.requests.get", return_value=fake) as get:
-            first = fetch_nearby_species_codes("40.71", "-74.01", 25, 14, False)
-            second = fetch_nearby_species_codes("40.71", "-74.01", 25, 14, False)
+            first = fetch_nearby_species_codes("40.71", "-74.01")
+            second = fetch_nearby_species_codes("40.71", "-74.01")
         self.assertEqual(first, ["amerob", "norcar"])
         self.assertEqual(second, first)
         get.assert_called_once()
         self.assertEqual(get.call_args.kwargs["headers"], {"X-eBirdApiToken": "test-key"})
-        self.assertEqual(get.call_args.kwargs["params"]["includeProvisional"], "false")
+        params = get.call_args.kwargs["params"]
+        self.assertEqual(params["dist"], 25)
+        self.assertEqual(params["back"], 14)
+        self.assertEqual(params["includeProvisional"], "false")
 
     @override_settings(EBIRD_API_KEY="test-key", EBIRD_ENABLED=True)
     def test_non_200_raises(self):
         fake = type("R", (), {"status_code": 403, "json": lambda self: []})()
         with patch("birdle.ebird.requests.get", return_value=fake):
             with self.assertRaises(EbirdError):
-                fetch_nearby_species_codes("1", "2", 25, 14, False)
+                fetch_nearby_species_codes("1", "2")
 
     @override_settings(EBIRD_API_KEY="", EBIRD_ENABLED=False)
     def test_unconfigured_raises(self):
         with self.assertRaises(EbirdError):
-            fetch_nearby_species_codes("1", "2", 25, 14, False)
+            fetch_nearby_species_codes("1", "2")

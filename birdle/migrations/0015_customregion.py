@@ -23,9 +23,6 @@ class Migration(migrations.Migration):
                 ),
                 ("lat", models.DecimalField(decimal_places=2, max_digits=5)),
                 ("lng", models.DecimalField(decimal_places=2, max_digits=6)),
-                ("dist", models.PositiveSmallIntegerField(default=25)),
-                ("back", models.PositiveSmallIntegerField(default=14)),
-                ("include_provisional", models.BooleanField(default=False)),
                 ("species_count", models.PositiveIntegerField(default=0)),
                 ("built_at", models.DateTimeField(blank=True, null=True)),
                 (

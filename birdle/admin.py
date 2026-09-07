@@ -95,6 +95,6 @@ class MembershipAdmin(admin.ModelAdmin):
 
 @admin.register(CustomRegion)
 class CustomRegionAdmin(admin.ModelAdmin):
-    list_display = ["user", "region", "lat", "lng", "dist", "back", "species_count", "built_at"]
+    list_display = ["user", "region", "lat", "lng", "species_count", "built_at"]
     search_fields = ["user__username", "user__email"]
     raw_id_fields = ["user", "region"]

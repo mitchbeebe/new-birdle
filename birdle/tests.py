@@ -801,6 +801,7 @@ class CustomRegionTests(TestCase):
         self.assertContains(response, "1 species")
         self.assertContains(response, 'id="custom-region"')
         self.assertNotContains(response, NAVBAR_MARKUP)
+        self.assertNotContains(response, "This is a premium feature")
         with patch("birdle.ebird.fetch_nearby_species_codes", side_effect=EbirdError("down")):
             response = self.client.post(
                 "/accounts/profile/custom-region/", self.FORM, HTTP_HX_REQUEST="true"

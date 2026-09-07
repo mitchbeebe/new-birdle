@@ -655,7 +655,7 @@ class CustomRegionTests(TestCase):
         self.assertRedirects(response, "/accounts/profile/")
         fetch.assert_called_once()
         custom = CustomRegion.objects.get(user=self.user)
-        self.assertEqual(custom.region.code, f"custom-{self.user.pk}")
+        self.assertEqual(custom.region.code, f"nearme-{self.user.pk}")
         self.assertEqual(custom.region.name, "Near me")
         self.assertEqual(custom.species_count, 2)
         self.assertIsNotNone(custom.built_at)
@@ -669,8 +669,8 @@ class CustomRegionTests(TestCase):
         response = self.client.get("/accounts/profile/")
         self.assertContains(response, "0 species")
         self.assertContains(response, "small pool")
-        # Nothing to play, so /custom/ sends them back to the profile.
-        self.assertRedirects(self.client.get("/custom/"), "/accounts/profile/")
+        # Nothing to play, so /nearme/ sends them back to the profile.
+        self.assertRedirects(self.client.get("/nearme/"), "/accounts/profile/")
 
     def test_rebuild_replaces_pool(self):
         self.go_premium()
@@ -680,7 +680,7 @@ class CustomRegionTests(TestCase):
             self.client.post("/accounts/profile/custom-region/", self.FORM)
         self.assertEqual(self.pool(), {self.birds[1].id})
         self.assertEqual(CustomRegion.objects.filter(user=self.user).count(), 1)
-        self.assertEqual(Region.objects.filter(code__startswith="custom-").count(), 1)
+        self.assertEqual(Region.objects.filter(code__startswith="nearme-").count(), 1)
 
     def test_ebird_error_renders_form_error(self):
         self.go_premium()
@@ -700,7 +700,7 @@ class CustomRegionTests(TestCase):
         self.assertFalse(CustomRegion.objects.exists())
 
     def test_anonymous_redirected_to_login(self):
-        response = self.client.get("/custom/")
+        response = self.client.get("/nearme/")
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response["Location"].startswith("/accounts/login/"))
         response = self.client.post("/accounts/profile/custom-region/", self.FORM)
@@ -708,8 +708,8 @@ class CustomRegionTests(TestCase):
 
     def test_non_premium_redirected_to_premium(self):
         self.client.force_login(self.user)
-        self.assertRedirects(self.client.get("/custom/"), "/premium/")
-        self.assertRedirects(self.client.get("/custom/stats/"), "/premium/")
+        self.assertRedirects(self.client.get("/nearme/"), "/premium/")
+        self.assertRedirects(self.client.get("/nearme/stats/"), "/premium/")
         response = self.client.post("/accounts/profile/custom-region/", self.FORM)
         self.assertRedirects(response, "/premium/")
         # The section is visible but disabled, pointing at the premium page.
@@ -720,11 +720,11 @@ class CustomRegionTests(TestCase):
 
     def test_premium_without_region_redirected_to_profile(self):
         self.go_premium()
-        self.assertRedirects(self.client.get("/custom/"), "/accounts/profile/")
+        self.assertRedirects(self.client.get("/nearme/"), "/accounts/profile/")
         response = self.client.post(
             "/region",
             HTTP_HX_REQUEST="true",
-            HTTP_HX_TRIGGER_NAME="custom",
+            HTTP_HX_TRIGGER_NAME="nearme",
             HTTP_HX_CURRENT_URL="http://testserver/world/",
         )
         self.assertEqual(response.status_code, 200)
@@ -733,10 +733,10 @@ class CustomRegionTests(TestCase):
     def test_premium_user_can_play_and_see_stats(self):
         self.go_premium()
         self.build(["amerob"])
-        response = self.client.get("/custom/")
+        response = self.client.get("/nearme/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.client.session["region_code"], "custom")
-        game = Game.objects.get(region__code=f"custom-{self.user.pk}")
+        self.assertEqual(self.client.session["region_code"], "nearme")
+        game = Game.objects.get(region__code=f"nearme-{self.user.pk}")
         self.assertEqual(game.bird, self.birds[0])
         self.assertEqual(
             response.context["emojis"],
@@ -749,27 +749,32 @@ class CustomRegionTests(TestCase):
         self.assertNotContains(suggestions, "norcar")
 
         response = self.client.post(
-            "/custom/", {"guess-input": "amerob", "game_id": game.pk}, HTTP_HX_REQUEST="true"
+            "/nearme/", {"guess-input": "amerob", "game_id": game.pk}, HTTP_HX_REQUEST="true"
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["is_winner"])
         self.assertTrue(UserGame.objects.get(game=game).is_winner)
 
-        response = self.client.get("/custom/stats/")
+        response = self.client.get("/nearme/stats/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["games_played"], 1)
 
+        # The archive resolves the custom region too.
+        response = self.client.get("/nearme/archive/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Near me")
+
     def test_fixed_regions_unaffected(self):
         self.assertEqual(self.client.get("/nope/").status_code, 404)
-        self.assertEqual(self.client.get("/custom-1/").status_code, 404)
+        self.assertEqual(self.client.get("/nearme-1/").status_code, 404)
         # Free users see the premium entries disabled, linking to the premium page.
         page = self.client.get("/premium/")
         self.assertContains(page, "Near me <span")
         self.assertContains(page, "Archive <span")
-        self.assertNotContains(page, "name=custom")
+        self.assertNotContains(page, "name=nearme")
         self.go_premium()
         page = self.client.get("/premium/")
-        self.assertContains(page, "name=custom")
+        self.assertContains(page, "name=nearme")
         self.assertContains(page, "/archive/")
 
     def test_region_switcher_from_profile_goes_home(self):
@@ -778,16 +783,16 @@ class CustomRegionTests(TestCase):
         response = self.client.post(
             "/region",
             HTTP_HX_REQUEST="true",
-            HTTP_HX_TRIGGER_NAME="custom",
+            HTTP_HX_TRIGGER_NAME="nearme",
             HTTP_HX_CURRENT_URL="http://testserver/accounts/profile/",
         )
-        self.assertEqual(response["HX-Redirect"], "/custom/")
-        self.assertEqual(self.client.session["region_code"], "custom")
+        self.assertEqual(response["HX-Redirect"], "/nearme/")
+        self.assertEqual(self.client.session["region_code"], "nearme")
         response = self.client.post(
             "/region",
             HTTP_HX_REQUEST="true",
             HTTP_HX_TRIGGER_NAME="world",
-            HTTP_HX_CURRENT_URL="http://testserver/custom/stats/",
+            HTTP_HX_CURRENT_URL="http://testserver/nearme/stats/",
         )
         self.assertEqual(response["HX-Redirect"], "/world/stats/")
 
@@ -818,11 +823,11 @@ class CustomRegionTests(TestCase):
     def test_delete_removes_region_and_resets_session(self):
         self.go_premium()
         self.build(["amerob"])
-        self.client.get("/custom/")
+        self.client.get("/nearme/")
         response = self.client.post("/accounts/profile/custom-region/delete/")
         self.assertRedirects(response, "/accounts/profile/")
         self.assertFalse(CustomRegion.objects.exists())
-        self.assertFalse(Region.objects.filter(code__startswith="custom-").exists())
+        self.assertFalse(Region.objects.filter(code__startswith="nearme-").exists())
         self.assertEqual(self.client.session["region_code"], "world")
 
 

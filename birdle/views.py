@@ -42,8 +42,8 @@ from pandas import date_range
 
 logger = logging.getLogger(__name__)
 
-# Public code for a premium user's custom region; resolved per user to ``custom-<pk>``.
-CUSTOM_REGION_CODE = "custom"
+# Public code for a premium user's custom region; resolved per user to ``nearme-<pk>``.
+CUSTOM_REGION_CODE = "nearme"
 CUSTOM_REGION_NAME = "Near me"
 # Paths under /<region>/ that the region switcher preserves when changing regions.
 REGION_PAGE_SUFFIXES = {"stats", "archive"}
@@ -326,9 +326,12 @@ def custom_region_delete(request):
 
 
 def _validate_region(request, region_code):
-    if region_code not in get_regions():
-        raise Http404("Region not found")
+    """Validate a public region code; returns the Region.code to query, or a redirect."""
+    resolved = resolve_region_code(request, region_code)
+    if isinstance(resolved, HttpResponse):
+        return resolved
     request.session["region_code"] = region_code
+    return resolved
 
 
 def _today(tz):
@@ -364,16 +367,18 @@ def _add_months(month, n):
 
 @premium_lib.premium_required
 def archive(request, region_code):
-    _validate_region(request, region_code)
+    db_code = _validate_region(request, region_code)
+    if isinstance(db_code, HttpResponse):
+        return db_code
     user_tz = get_user_timezone(request)
     today = _today(user_tz)
     month = _month_param(request.GET.get("month"), today)
-    first_game = Game.objects.filter(region__code=region_code).order_by("date").first()
+    first_game = Game.objects.filter(region__code=db_code).order_by("date").first()
     first_month = first_game.date.replace(day=1) if first_game else today.replace(day=1)
     month = min(max(month, first_month), today.replace(day=1))
 
     games = Game.objects.filter(
-        region__code=region_code,
+        region__code=db_code,
         date__gte=month,
         date__lt=min(_add_months(month, 1), today),
     ).select_related("bird")
@@ -431,9 +436,11 @@ def archive(request, region_code):
 
 @premium_lib.premium_required
 def archive_game(request, region_code, date):
-    _validate_region(request, region_code)
+    db_code = _validate_region(request, region_code)
+    if isinstance(db_code, HttpResponse):
+        return db_code
     user_tz = get_user_timezone(request)
-    game = _past_game_or_404(region_code, date, user_tz)
+    game = _past_game_or_404(db_code, date, user_tz)
     user = _session_user(request)
     usergame, _ = UserGame.objects.get_or_create(
         user=user, game=game, defaults={"is_archive": True}

@@ -13,7 +13,7 @@
     {{ custom_region.lat }}, {{ custom_region.lng }}: {{ custom_region.species_count }} species
     {% if custom_region.built_at %}(built {{ custom_region.built_at|date:"M j, Y" }}){% endif %}.
     {% if custom_region.species_count < 10 %}That's a small pool &mdash; few species have been reported nearby recently.{% endif %}
-    {% if custom_region.species_count > 0 %}<a href="/custom/">Play it</a>{% endif %}
+    {% if custom_region.species_count > 0 %}<a href="/nearme/">Play it</a>{% endif %}
 </div>
 {% endif %}
 <form method="post" action="{% url 'custom_region' %}" id="custom-region-form"

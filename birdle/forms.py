@@ -116,7 +116,11 @@ class CustomRegionForm(forms.ModelForm):
         if lat is not None and lng is not None:
             if not -90 <= lat <= 90 or not -180 <= lng <= 180:
                 raise forms.ValidationError("That location is out of range.")
-            cleaned["location"] = ""  # coordinates came from the device, not a typed place
+            # Coordinates came from the device; show a place name rather than raw numbers.
+            try:
+                cleaned["location"] = geocode.reverse_lookup(lat, lng)
+            except geocode.GeocodeError:
+                cleaned["location"] = ""
             return cleaned
         if not location:
             raise forms.ValidationError("Enter a location or use your device's location.")

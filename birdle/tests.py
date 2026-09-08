@@ -23,7 +23,7 @@ from .models import (
     UserGame,
 )
 from .ebird import EbirdError, fetch_nearby_species_codes
-from .geocode import GeocodeError, lookup
+from .geocode import GeocodeError, lookup, reverse_lookup
 from .premium import premium_required
 from .signals import merge_anonymous_history
 from .views import random_bird
@@ -621,7 +621,7 @@ class ArchiveTests(TestCase):
 
 
 @plain_static_storage
-@override_settings(EBIRD_API_KEY="test-key", EBIRD_ENABLED=True)
+@override_settings(EBIRD_API_KEY="test-key", EBIRD_ENABLED=True, LATLNG_API_KEY="")
 class CustomRegionTests(TestCase):
     FORM = {"lat": "40.71", "lng": "-74.01"}
 
@@ -725,12 +725,22 @@ class CustomRegionTests(TestCase):
         self.assertEqual(fetch.call_args.args[:2], (Decimal("45.52"), Decimal("-122.67")))
         self.assertContains(self.client.get("/accounts/profile/"), "Portland: 1 species")
 
-    def test_geolocation_coordinates_skip_geocoding(self):
+    def test_geolocation_coordinates_are_reverse_geocoded(self):
         self.go_premium()
         with patch("birdle.geocode.lookup") as lookup:
-            self.build(["amerob"], {**self.FORM, "location": "ignored"})
+            with patch("birdle.geocode.reverse_lookup", return_value="Portland, OR") as reverse:
+                self.build(["amerob"], {**self.FORM, "location": "ignored"})
         lookup.assert_not_called()
+        reverse.assert_called_once_with(Decimal("40.71"), Decimal("-74.01"))
+        self.assertEqual(CustomRegion.objects.get(user=self.user).location, "Portland, OR")
+        self.assertContains(self.client.get("/accounts/profile/"), "Portland, OR: 1 species")
+
+    def test_reverse_geocode_failure_falls_back_to_coordinates(self):
+        self.go_premium()
+        with patch("birdle.geocode.reverse_lookup", side_effect=GeocodeError("down")):
+            self.build(["amerob"])
         self.assertEqual(CustomRegion.objects.get(user=self.user).location, "")
+        self.assertContains(self.client.get("/accounts/profile/"), "40.71, -74.01: 1 species")
 
     def test_location_errors_render_as_form_errors(self):
         self.go_premium()
@@ -979,6 +989,27 @@ class GeocodeLookupTests(TestCase):
                 (Decimal("45.52"), Decimal("-122.67"), "Portland, Oregon, United States"),
             )
         self.assertEqual(get.call_args.kwargs["headers"], {"X-Api-Key": "k"})
+
+    @override_settings(LATLNG_API_KEY="k")
+    def test_reverse_prefers_city_state(self):
+        payload = {
+            "features": [
+                {
+                    "geometry": {"coordinates": [-122.67, 45.52]},
+                    "properties": {
+                        "name": "Oregon Maritime Museum",
+                        "city": "Portland",
+                        "state": "OR",
+                        "country": "United States",
+                    },
+                }
+            ]
+        }
+        with patch("birdle.geocode.requests.get", return_value=self.fake(payload)) as get:
+            self.assertEqual(reverse_lookup("45.52", "-122.67"), "Portland, OR, United States")
+        self.assertEqual(get.call_args.kwargs["params"], {"lat": "45.52", "lon": "-122.67"})
+        with patch("birdle.geocode.requests.get", return_value=self.fake({"features": []})):
+            self.assertEqual(reverse_lookup("0", "0"), "")
 
     @override_settings(LATLNG_API_KEY="k")
     def test_no_match_raises(self):

@@ -60,10 +60,9 @@ document.getElementById("use-location").addEventListener("click", function () {
         document.getElementById("custom-region-form").requestSubmit();
     }, function (err) {
         button.disabled = false;
-        var why = err.code === err.PERMISSION_DENIED ? "permission was denied (check the browser's location setting for this site)"
-                : err.code === err.TIMEOUT ? "it timed out"
-                : "position unavailable";
-        alert("Couldn't get your location: " + why + ". Type it instead.");
+        alert(err.code === err.PERMISSION_DENIED
+            ? "Location access is blocked for this site. Allow it in your browser settings, or type your location."
+            : "Couldn't get your location. Try again or type it.");
     }, { timeout: 15000 });
 });
 </script>

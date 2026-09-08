@@ -297,8 +297,9 @@ def custom_region(request):
     custom = region_form.save(commit=False)
     if custom.region_id is None:
         custom.user = request.user
-        custom.region = Region.objects.create(
-            code=custom_region_db_code(request.user), name=CUSTOM_REGION_NAME
+        # get_or_create: a Region can outlive its CustomRegion (e.g. after a migration rollback).
+        custom.region, _ = Region.objects.get_or_create(
+            code=custom_region_db_code(request.user), defaults={"name": CUSTOM_REGION_NAME}
         )
     custom.save()
     try:

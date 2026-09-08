@@ -701,6 +701,14 @@ class CustomRegionTests(TestCase):
         fetch.assert_not_called()
         self.assertFalse(CustomRegion.objects.exists())
 
+    def test_build_adopts_orphaned_region_row(self):
+        self.go_premium()
+        Region.objects.create(code=f"near-me-{self.user.pk}", name="Near me")
+        response, _ = self.build(["amerob"])
+        self.assertRedirects(response, "/accounts/profile/")
+        self.assertEqual(Region.objects.filter(code=f"near-me-{self.user.pk}").count(), 1)
+        self.assertEqual(CustomRegion.objects.get(user=self.user).species_count, 1)
+
     def test_typed_location_is_geocoded(self):
         self.go_premium()
         with patch(

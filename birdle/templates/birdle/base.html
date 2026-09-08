@@ -36,6 +36,10 @@
             if (e.defaultPrevented) return;
             e.target.querySelectorAll("button[type=submit]").forEach(function (b) { b.disabled = true; });
           });
+          // htmx doesn't swap error responses, so say something rather than silently doing nothing.
+          document.addEventListener("htmx:responseError", function (e) {
+            alert("Something went wrong (HTTP " + e.detail.xhr.status + "). Please try again.");
+          });
         </script>
 
         <link rel="stylesheet" href="{% static 'birdle/style.css' %}">

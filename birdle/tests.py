@@ -891,6 +891,26 @@ class CustomRegionTests(TestCase):
         self.assertNotContains(response, "1 species")
         self.assertFalse(CustomRegion.objects.exists())
 
+    def test_practice_offers_near_me_only_to_owner_with_pool(self):
+        self.go_premium()
+        page = self.client.get("/practice/")
+        self.assertNotContains(page, 'value="Near me"')  # nothing built yet
+        self.build(["amerob"])
+        page = self.client.get("/practice/")
+        self.assertContains(page, 'value="Near me"')
+
+        response = self.client.post("/practice/", {"region": "Near me", "family": "Any"})
+        self.assertEqual(response.status_code, 302)
+        practice_url = response["Location"]
+        response = self.client.get(practice_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["options"], ["amerob"])
+
+        # Another user can't reach this pool through the shared "Near me" name.
+        self.client.logout()
+        self.assertNotContains(self.client.get("/practice/"), 'value="Near me"')
+        self.assertEqual(self.client.get(practice_url).status_code, 404)
+
     def test_delete_removes_region_and_resets_session(self):
         self.go_premium()
         self.build(["amerob"])

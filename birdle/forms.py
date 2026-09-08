@@ -3,19 +3,47 @@ from typing import cast
 from django import forms
 from django.contrib.auth.models import User
 
-from . import geocode
+from . import geocode, premium
 from .models import Bird, BirdRegion, CustomRegion, Region
+
+NEAR_ME = "Near me"
+
+
+def user_custom_region(user):
+    """The user's built near-me region, or None (anonymous, free, or not built yet)."""
+    if user is None or not user.is_authenticated:
+        return None
+    custom = CustomRegion.objects.filter(user=user, species_count__gt=0).first()
+    if custom is None or not premium.is_premium(user):
+        return None
+    return custom
+
+
+def practice_pool(user, region, family):
+    """BirdRegion rows to practice on. Every near-me region is named "Near me", so that
+    choice is resolved to the requesting user's own region rather than matched by name."""
+    birdregions = BirdRegion.objects.all()
+    if region == NEAR_ME:
+        custom = user_custom_region(user)
+        birdregions = birdregions.filter(region=custom.region if custom else None)
+    elif region != "Any":
+        birdregions = birdregions.filter(region__name=region)
+    if family != "Any":
+        birdregions = birdregions.filter(bird__family=family)
+    return birdregions
 
 
 class BirdRegionForm(forms.Form):
     region = forms.ChoiceField(widget=forms.Select(attrs={"class": "form-control"}))
     family = forms.ChoiceField(widget=forms.Select(attrs={"class": "form-control"}))
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super(BirdRegionForm, self).__init__(*args, **kwargs)
+        self.user = user
         region_field = cast(forms.ChoiceField, self.fields["region"])
         region_field.choices = [
             ("Any", "Any Region"),
+            *([(NEAR_ME, NEAR_ME)] if user_custom_region(user) else []),
             *[
                 (val[0], val[0])
                 for val in Region.objects.exclude(code__startswith="near-me-")
@@ -38,13 +66,7 @@ class BirdRegionForm(forms.Form):
         region = cleaned_data.get("region")
         family = cleaned_data.get("family")
 
-        birdregions = BirdRegion.objects.all()
-        if region != "Any":
-            birdregions = birdregions.filter(region__name=region)
-        if family != "Any":
-            birdregions = birdregions.filter(bird__family=family)
-
-        if not birdregions.exists():
+        if not practice_pool(self.user, region, family).exists():
             raise forms.ValidationError(f"{family} have not been found in the {region} region.")
 
         return cleaned_data

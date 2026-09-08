@@ -24,7 +24,7 @@ from .models import (
     BirdRegion,
     Region,
 )
-from .forms import BirdRegionForm, CustomRegionForm, UsernameForm
+from .forms import BirdRegionForm, CustomRegionForm, UsernameForm, practice_pool
 from . import ebird
 from . import premium as premium_lib
 from .premium import premium_required
@@ -604,27 +604,27 @@ def practice(request, **kwargs):
             decoded_region = unquote(region) if region else "Any"
             decoded_family = unquote(family) if family else "Any"
 
-            birdregions = BirdRegion.objects.all()
             if decoded_region == "Any" and decoded_family == "Any":
                 birds = Bird.objects.all()
             else:
-                if decoded_region != "Any":
-                    birdregions = birdregions.filter(region__name=decoded_region)
-                if decoded_family != "Any":
-                    birdregions = birdregions.filter(bird__family=decoded_family)
-                birds = [x.bird for x in birdregions]
+                pool = practice_pool(request.user, decoded_region, decoded_family)
+                birds = [x.bird for x in pool.select_related("bird")]
+            if not birds:
+                raise Http404("No birds to practice with")
 
             birds_choices = choices(birds, k=4)
             bird = choices(birds_choices, k=1)[0]
             imgs = get_bird_images(bird=bird)
             options = list(set([bird.name for bird in birds_choices]))
             data.update({"imgs": imgs, "options": options, "answer": bird})
-            form = BirdRegionForm(initial={"region": decoded_region, "family": decoded_family})
+            form = BirdRegionForm(
+                initial={"region": decoded_region, "family": decoded_family}, user=request.user
+            )
         else:
-            form = BirdRegionForm()
+            form = BirdRegionForm(user=request.user)
         return render(request, "birdle/practice.html", {"form": form, **data})
     elif request.method == "POST":
-        form = BirdRegionForm(request.POST)
+        form = BirdRegionForm(request.POST, user=request.user)
         if form.is_valid():
             region = quote(form.cleaned_data["region"])
             family = quote(form.cleaned_data["family"])

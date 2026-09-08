@@ -50,6 +50,7 @@ document.getElementById("build-from-place").addEventListener("click", function (
 });
 document.getElementById("use-location").addEventListener("click", function () {
     if (!navigator.geolocation) { alert("Geolocation isn't supported by this browser. Type your location instead."); return; }
+    if (!window.isSecureContext) { alert("Location only works over https. Open this page via an https address, or type your location instead."); return; }
     var button = this;
     button.disabled = true;
     navigator.geolocation.getCurrentPosition(function (pos) {
@@ -57,10 +58,13 @@ document.getElementById("use-location").addEventListener("click", function () {
         document.getElementById("{{ region_form.lng.id_for_label }}").value = pos.coords.longitude.toFixed(2);
         document.getElementById("{{ region_form.location.id_for_label }}").value = "";
         document.getElementById("custom-region-form").requestSubmit();
-    }, function () {
+    }, function (err) {
         button.disabled = false;
-        alert("Couldn't get your location. Type it instead.");
-    });
+        var why = err.code === err.PERMISSION_DENIED ? "permission was denied (check the browser's location setting for this site)"
+                : err.code === err.TIMEOUT ? "it timed out"
+                : "position unavailable";
+        alert("Couldn't get your location: " + why + ". Type it instead.");
+    }, { timeout: 15000 });
 });
 </script>
 </div>

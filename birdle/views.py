@@ -27,6 +27,7 @@ from .models import (
 from .forms import BirdRegionForm, CustomRegionForm, UsernameForm, practice_pool
 from . import ebird
 from . import premium as premium_lib
+from .signals import merge_anonymous_history
 from .premium import premium_required
 from django.core.cache import cache
 from django.db.models import Count, Exists, OuterRef, Q
@@ -156,13 +157,21 @@ def daily_bird(request, region_code=None):
 
 
 def _session_user(request):
-    # Get user if available
+    """The player: the logged-in account, else the anonymous user tracked by this browser.
+
+    ``user_id`` is the pre-accounts anonymous id some browsers still send from localStorage.
+    It must never override a logged-in account, but any history it points at is folded in.
+    """
     old_username = request.POST.get("user_id")
-    if old_username:
-        username = old_username
+    if request.user.is_authenticated:
+        user = request.user
+        for stale in {old_username, request.session.get("username")} - {None, "", user.username}:
+            merge_anonymous_history(request, user, anon_username=stale)
     else:
-        username = request.session.get("username", int(datetime.now().timestamp() * 100))
-    user, _ = User.objects.get_or_create(username=username)
+        username = old_username or request.session.get(
+            "username", int(datetime.now().timestamp() * 100)
+        )
+        user, _ = User.objects.get_or_create(username=username)
     request.session["username"] = user.username
     return user
 
@@ -756,7 +765,7 @@ def get_regions():
 @register.simple_tag
 def get_nav_regions():
     """Regions shown in the nav dropdown; the template disables custom for non-members."""
-    return {**get_regions(), CUSTOM_REGION_CODE: CUSTOM_REGION_NAME}
+    return {CUSTOM_REGION_CODE: CUSTOM_REGION_NAME, **get_regions()}
 
 
 @register.simple_tag

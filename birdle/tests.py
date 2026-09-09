@@ -163,6 +163,44 @@ class AnonymousMergeTests(AccountsTestMixin, TestCase):
         self.assertEqual(UserGame.objects.get(game=game).user, other)
         self.assertEqual(self.session["username"], self.account.username)
 
+    def test_stale_localstorage_user_id_cannot_hijack_logged_in_account(self):
+        game = self.make_game(self.region, date.today())
+        for i in range(2):
+            Image.objects.create(url=f"u{i}", bird=game.bird)
+        old_game = self.make_game(self.region, date(2024, 1, 1))
+        old_usergame = UserGame.objects.create(user=self.anon, game=old_game)
+        Guess.objects.create(usergame=old_usergame, bird=old_game.bird)
+        self.client.force_login(self.account)
+        self.client.cookies["timezone"] = "UTC"
+
+        # The browser still sends its pre-accounts anonymous id with every guess.
+        response = self.client.post(
+            "/world/",
+            {"guess-input": game.bird.name, "game_id": game.pk, "user_id": self.anon.username},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.session["username"], "alice")
+        self.assertEqual(UserGame.objects.get(game=game).user, self.account)
+        # ...and that anonymous history is folded into the account, not left behind.
+        self.assertEqual(UserGame.objects.get(game=old_game).user, self.account)
+        self.assertFalse(User.objects.filter(username=self.anon.username).exists())
+        # The page now shows the guess without needing another submit.
+        self.assertEqual(self.client.get("/world/").context["guess_count"], 1)
+
+    def test_anonymous_localstorage_user_id_still_identifies_player(self):
+        game = self.make_game(self.region, date.today())
+        for i in range(2):
+            Image.objects.create(url=f"u{i}", bird=game.bird)
+        self.client.cookies["timezone"] = "UTC"
+        response = self.client.post(
+            "/world/",
+            {"guess-input": game.bird.name, "game_id": game.pk, "user_id": self.anon.username},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(UserGame.objects.get(game=game).user, self.anon)
+
     def test_session_username_updated_on_login(self):
         game = self.make_game(self.region, date(2024, 1, 1))
         UserGame.objects.create(user=self.anon, game=game)

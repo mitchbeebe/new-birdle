@@ -44,9 +44,9 @@
 {% if custom_region %}
 <form method="post" action="{% url 'custom_region_delete' %}" class="mt-2 text-center"
       hx-post="{% url 'custom_region_delete' %}" hx-target="#custom-region" hx-swap="outerHTML"
-      hx-disabled-elt="find button" hx-confirm="Delete your Near me region and its game history?">
+      hx-disabled-elt="find button" hx-confirm="Reset your Near me region and its game history?">
     {% csrf_token %}
-    <button type="submit" class="btn btn-link btn-sm text-danger">Delete Near me region</button>
+    <button type="submit" class="btn btn-link btn-sm text-danger">Reset</button>
 </form>
 {% endif %}
 </details>

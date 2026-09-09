@@ -122,9 +122,17 @@
   {% if messages %}
   <div class="container pt-3" style="max-width: 28rem;">
     {% for message in messages %}
-    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} py-2 mb-2">{{ message }}</div>
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} fade show py-2 mb-2" role="alert">{{ message }}</div>
     {% endfor %}
   </div>
+  <script>
+    // Flash messages fade out on their own after a few seconds.
+    window.addEventListener("DOMContentLoaded", () => {
+      document.querySelectorAll(".alert.fade.show").forEach((el) => {
+        setTimeout(() => bootstrap.Alert.getOrCreateInstance(el).close(), 4000);
+      });
+    });
+  </script>
   {% endif %}
   {% block main %}
   {% block content %}

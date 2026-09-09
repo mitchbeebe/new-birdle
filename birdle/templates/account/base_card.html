@@ -1,7 +1,7 @@
 {% extends 'birdle/base.html' %}
 
 {% block main %}
-<div class="container pt-3" style="max-width: 28rem;">
+<div class="container pt-3 mb-3" style="max-width: 28rem;">
     <div class="card">
         <div class="card-body">
             <h1 class="h4 card-title text-center mb-3">{% block card_title %}{% endblock %}</h1>
@@ -11,6 +11,3 @@
 </div>
 {% endblock %}
 
-{% block footer %}
-{% include 'birdle/footer.html' %}
-{% endblock %}

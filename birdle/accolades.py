@@ -13,7 +13,12 @@ from django.db.models import Count, Exists, F, OuterRef
 from .models import Bird, Guess, UserGame
 
 MIN_FAMILY_GAMES = 3
-STREAK_MILESTONES = (7, 30, 100)
+STREAK_MILESTONES = (
+    (7, "fa-fire"),
+    (30, "fa-fire-flame-curved"),
+    (100, "fa-fire-flame-simple"),
+    (365, "fa-crown"),
+)
 HEATMAP_LEVELS = 4
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
@@ -85,15 +90,8 @@ def _winning_guesses(user):
 
 
 def life_list(wins):
-    """Distinct species identified across all regions, grouped by family."""
-    families = defaultdict(set)
-    for name, family, _date, _region, _archive in wins:
-        families[family].add(name)
-    groups = [
-        {"family": family, "species": sorted(species)}
-        for family, species in sorted(families.items())
-    ]
-    return {"count": sum(len(g["species"]) for g in groups), "families": groups}
+    """Number of distinct species identified across all regions."""
+    return len({name for name, _family, _date, _region, _archive in wins})
 
 
 def world_traveler(wins, fixed_regions):
@@ -178,12 +176,12 @@ def awards(families, catch, traveler, best_streak):
             detail = f"Play a family {MIN_FAMILY_GAMES} times to unlock"
         tiles.append({"icon": icon, "title": title, "detail": detail, "earned": bool(eligible)})
 
-    for milestone in STREAK_MILESTONES:
+    for milestone, icon in STREAK_MILESTONES:
         earned = best_streak >= milestone
         detail = f"Best streak: {best_streak}" if earned else f"Win {milestone} days in a row"
         tiles.append(
             {
-                "icon": "fa-fire",
+                "icon": icon,
                 "title": f"{milestone}-Day Streak",
                 "detail": detail,
                 "earned": earned,

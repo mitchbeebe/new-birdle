@@ -92,16 +92,7 @@
         {% endif %}
 
         <h4 class="text-center mt-4">Life List</h4>
-        <p class="mb-2">{{ detailed.life_list.count }} species identified across all regions.</p>
-        {% if detailed.life_list.families %}
-        <button class="btn btn-outline-secondary btn-sm mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#life-list">Show list</button>
-        <div class="collapse text-start mx-auto" id="life-list" style="max-width: 32rem;">
-            {% for group in detailed.life_list.families %}
-            <div class="fw-semibold mt-2">{{ group.family }} <span class="text-body-secondary fw-normal">({{ group.species|length }})</span></div>
-            <div>{{ group.species|join:", " }}</div>
-            {% endfor %}
-        </div>
-        {% endif %}
+        <p>{{ detailed.life_list }} species identified across all regions.</p>
         {% else %}
         <div class="card mx-auto" style="max-width: 32rem;">
             <div class="card-body">

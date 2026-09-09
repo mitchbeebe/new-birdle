@@ -1140,15 +1140,7 @@ class AccoladeTests(TestCase):
         self.play(robin, date(2024, 1, 2), won=True, region=eu)
         self.play(self.bird("owl", "Owls"), date(2024, 1, 3), won=True, region=eu)
         self.play(self.bird("duck", "Ducks"), date(2024, 1, 4), won=False)
-        life = accolades.life_list(accolades._winning_guesses(self.user))
-        self.assertEqual(life["count"], 2)
-        self.assertEqual(
-            life["families"],
-            [
-                {"family": "Owls", "species": ["owl"]},
-                {"family": "Thrushes", "species": ["robin"]},
-            ],
-        )
+        self.assertEqual(accolades.life_list(accolades._winning_guesses(self.user)), 2)
 
     def test_world_traveler_requires_every_fixed_region_same_day(self):
         eu = Region.objects.create(code="eu", name="Europe")
@@ -1179,7 +1171,7 @@ class AccoladeTests(TestCase):
         detailed = self.stats_page().context["detailed"]
         self.assertEqual([f["family"] for f in detailed["families"]], ["Owls", "Ducks"])
         self.assertEqual(detailed["hardest"][0]["bird"], "duck")
-        self.assertEqual(detailed["life_list"]["count"], 2)
+        self.assertEqual(detailed["life_list"], 2)
         by_title = {t["title"]: t for t in detailed["awards"]}
         self.assertTrue(by_title["Catch 'Em All"]["earned"])
         self.assertFalse(by_title["World Traveler"]["earned"])
@@ -1221,6 +1213,11 @@ class AccoladeTests(TestCase):
         self.assertTrue(by_title["7-Day Streak"]["earned"])
         self.assertTrue(by_title["30-Day Streak"]["earned"])
         self.assertFalse(by_title["100-Day Streak"]["earned"])
+        self.assertFalse(by_title["365-Day Streak"]["earned"])
+        self.assertEqual(
+            len({t["icon"] for t in tiles if t["title"].endswith("Streak")}),
+            len(accolades.STREAK_MILESTONES),
+        )
 
     def stats_page(self):
         self.client.force_login(self.user)
@@ -1243,7 +1240,7 @@ class AccoladeTests(TestCase):
         self.play(bird, date(2024, 1, 1), won=True)
         response = self.stats_page()
         self.assertContains(response, "Accuracy by Family")
-        self.assertEqual(response.context["detailed"]["life_list"]["count"], 1)
+        self.assertEqual(response.context["detailed"]["life_list"], 1)
 
         # A cached page from before the user went premium is recomputed.
         cache.set(_stats_cache_key(self.user.username, "world"), {"games_played": 1})
@@ -1255,4 +1252,4 @@ class AccoladeTests(TestCase):
             with patch("birdle.views.todays_game", return_value=game):
                 self.client.post("/world/", {"guess-input": "wren"})
         self.assertIsNone(cache.get(_stats_cache_key(self.user.username, "world")))
-        self.assertEqual(self.stats_page().context["detailed"]["life_list"]["count"], 2)
+        self.assertEqual(self.stats_page().context["detailed"]["life_list"], 2)

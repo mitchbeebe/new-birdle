@@ -1065,6 +1065,7 @@ class GeocodeLookupTests(TestCase):
             lookup("Portland")
 
 
+@plain_static_storage
 class AccoladeTests(TestCase):
     def setUp(self):
         self.world, _ = Region.objects.get_or_create(code="world", defaults={"name": "World"})

@@ -119,6 +119,13 @@
       </div>
     </div>
   </nav>
+  {% if messages %}
+  <div class="container pt-3" style="max-width: 28rem;">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} py-2 mb-2">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
   {% block main %}
   {% block content %}
   {% endblock %}

@@ -3,10 +3,6 @@
 {% block card_title %}Friends{% endblock %}
 
 {% block card_body %}
-{% for message in messages %}
-<div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} py-2">{{ message }}</div>
-{% endfor %}
-
 <form method="post" action="{% url 'friend_request' %}" class="mb-4">
     {% csrf_token %}
     <label for="friend-username" class="form-label">Add a friend</label>

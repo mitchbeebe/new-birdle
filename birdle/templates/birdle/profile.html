@@ -28,6 +28,7 @@
     <a href="{% url 'account_set_password' %}" class="btn btn-outline-secondary">Set a password</a>
     {% endif %}
     <a href="{% url 'account_reset_password' %}" class="btn btn-link">Forgot your password?</a>
+    <a href="{% url 'socialaccount_connections' %}" class="btn btn-outline-secondary">Connected accounts</a>
 </div>
 <hr>
 <form method="post" action="{% url 'account_logout' %}">

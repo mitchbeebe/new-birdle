@@ -15,7 +15,7 @@ from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone as django_timezone
 
 from . import accolades
-from .friends import friend_ids, send_request
+from .friends import friend_ids, invite_for, reset_invite, send_request
 from .models import (
     Bird,
     BirdRegion,
@@ -1363,3 +1363,47 @@ class FriendTests(TestCase):
         Membership.objects.filter(user=self.alice).delete()
         self.assertRedirects(self.client.get("/accounts/friends/"), "/premium/")
         self.assertNotContains(self.client.get("/accounts/profile/"), 'href="/accounts/friends/"')
+
+    def test_invite_link_shown_and_reset(self):
+        response = self.client.get("/accounts/friends/")
+        token = invite_for(self.alice).token
+        self.assertContains(response, f"/accounts/friends/join/{token}/")
+        self.client.post("/accounts/friends/invite/reset/")
+        self.assertNotEqual(invite_for(self.alice).token, token)
+
+    def test_join_page_and_confirm_creates_accepted(self):
+        url = f"/accounts/friends/join/{invite_for(self.bob).token}/"
+        self.assertContains(self.client.get(url), "Add <strong>bob</strong> as a friend?")
+        response = self.client.post(url, follow=True)
+        self.assertContains(response, "You and bob are now friends.")
+        self.assertEqual(friend_ids(self.alice), {self.bob.pk})
+
+    def test_join_upgrades_pending_request_to_accepted(self):
+        send_request(self.alice, self.bob)
+        self.client.post(f"/accounts/friends/join/{invite_for(self.bob).token}/")
+        self.assertEqual(friend_ids(self.bob), {self.alice.pk})
+        self.assertEqual(Friendship.objects.count(), 1)
+
+    def test_join_own_link_or_existing_friend_rejected(self):
+        url = f"/accounts/friends/join/{invite_for(self.alice).token}/"
+        self.assertContains(self.client.post(url, follow=True), "You can&#x27;t add yourself.")
+        send_request(self.alice, self.bob, accepted=True)
+        url = f"/accounts/friends/join/{invite_for(self.bob).token}/"
+        self.assertContains(self.client.post(url, follow=True), "You&#x27;re already friends.")
+        self.assertEqual(Friendship.objects.count(), 1)
+
+    def test_join_bad_or_reset_token_404(self):
+        old = invite_for(self.bob).token
+        reset_invite(self.bob)
+        self.assertEqual(self.client.get(f"/accounts/friends/join/{old}/").status_code, 404)
+        self.assertEqual(self.client.get("/accounts/friends/join/nope/").status_code, 404)
+
+    def test_join_gated_by_login_and_premium(self):
+        url = f"/accounts/friends/join/{invite_for(self.bob).token}/"
+        self.client.logout()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(f"next={url}", response["Location"])
+        Membership.objects.filter(user=self.alice).delete()
+        self.client.force_login(self.alice)
+        self.assertRedirects(self.client.get(url), "/premium/")

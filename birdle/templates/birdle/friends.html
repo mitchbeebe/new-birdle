@@ -3,6 +3,27 @@
 {% block card_title %}Friends{% endblock %}
 
 {% block card_body %}
+<label for="invite-url" class="form-label">Your invite link</label>
+<div class="input-group mb-1">
+    <input type="text" id="invite-url" class="form-control" value="{{ invite_url }}" readonly>
+    <button type="button" class="btn btn-primary" id="copy-invite">Copy</button>
+</div>
+<form method="post" action="{% url 'friend_invite_reset' %}" class="mb-4">
+    {% csrf_token %}
+    <small class="text-body-secondary">Anyone with this link can add you as a friend.</small>
+    <button type="submit" class="btn btn-link btn-sm p-0 align-baseline">Reset link</button>
+</form>
+<script>
+  document.getElementById("copy-invite").addEventListener("click", async (e) => {
+    const url = document.getElementById("invite-url").value;
+    if (navigator.share) {
+      try { await navigator.share({ url }); return; } catch (_) {}
+    }
+    await navigator.clipboard.writeText(url);
+    e.target.textContent = "Copied";
+  });
+</script>
+
 <form method="post" action="{% url 'friend_request' %}" class="mb-4">
     {% csrf_token %}
     <label for="friend-username" class="form-label">Add a friend</label>

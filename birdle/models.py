@@ -1,4 +1,5 @@
 import random
+import secrets
 from typing import TYPE_CHECKING
 from django.db import models
 from django.conf import settings
@@ -210,3 +211,18 @@ class Friendship(models.Model):
 
     def __str__(self):
         return f"{self.from_user} -> {self.to_user} ({self.status})"
+
+
+def new_invite_token() -> str:
+    return secrets.token_urlsafe(16)
+
+
+class FriendInvite(models.Model):
+    """A user's stable, shareable friend-invite token; reset regenerates it."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    token = models.CharField(max_length=32, unique=True, default=new_invite_token)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user}: {self.token}"

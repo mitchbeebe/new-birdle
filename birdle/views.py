@@ -17,6 +17,7 @@ from django.contrib.auth.models import User
 from .models import (
     Bird,
     CustomRegion,
+    FriendInvite,
     Friendship,
     Guess,
     Game,
@@ -510,8 +511,36 @@ def friends(request):
             "friends": friend_rows,
             "incoming": friends_lib.pending_incoming(request.user),
             "outgoing": friends_lib.pending_outgoing(request.user),
+            "invite_url": request.build_absolute_uri(
+                reverse("friend_join", args=[friends_lib.invite_for(request.user).token])
+            ),
         },
     )
+
+
+@premium_lib.premium_required
+@require_http_methods(["POST"])
+def friend_invite_reset(request):
+    friends_lib.reset_invite(request.user)
+    messages.info(request, "Invite link reset. The old link no longer works.")
+    return redirect("friends")
+
+
+@premium_lib.premium_required
+@require_http_methods(["GET", "POST"])
+def friend_join(request, token):
+    invite = FriendInvite.objects.filter(token=token).select_related("user").first()
+    if invite is None:
+        raise Http404
+    if request.method == "GET":
+        return render(request, "birdle/friend_join.html", {"inviter": invite.user})
+    try:
+        friends_lib.send_request(request.user, invite.user, accepted=True)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("friends")
+    messages.success(request, f"You and {invite.user.username} are now friends.")
+    return redirect("friends")
 
 
 @premium_lib.premium_required

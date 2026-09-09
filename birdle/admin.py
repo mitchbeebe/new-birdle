@@ -6,6 +6,7 @@ from django.urls import reverse
 from birdle.models import (
     Bird,
     CustomRegion,
+    FriendInvite,
     Friendship,
     Game,
     Guess,
@@ -107,3 +108,10 @@ class FriendshipAdmin(admin.ModelAdmin):
     list_filter = ["status"]
     search_fields = ["from_user__username", "to_user__username"]
     raw_id_fields = ["from_user", "to_user"]
+
+
+@admin.register(FriendInvite)
+class FriendInviteAdmin(admin.ModelAdmin):
+    list_display = ["user", "token", "created_at"]
+    search_fields = ["user__username"]
+    raw_id_fields = ["user"]

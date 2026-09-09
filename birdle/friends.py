@@ -2,7 +2,7 @@
 
 from django.db.models import Q
 
-from .models import Friendship
+from .models import FriendInvite, Friendship, new_invite_token
 
 
 def friend_ids(user) -> set[int]:
@@ -25,11 +25,12 @@ def pending_outgoing(user):
     )
 
 
-def send_request(from_user, to_user) -> Friendship:
+def send_request(from_user, to_user, accepted=False) -> Friendship:
     """Create a pending request, or accept the reverse one if it is already pending.
 
-    Raises ValueError for self-requests and when any friendship row already links the two
-    users (pending in this direction, or already accepted in either direction).
+    With ``accepted`` (the invite-link path, where the recipient already consented by
+    sharing the link) the friendship is created or upgraded to accepted directly.
+    Raises ValueError for self-requests and when the two users are already friends.
     """
     if from_user.pk == to_user.pk:
         raise ValueError("You can't add yourself.")
@@ -44,5 +45,22 @@ def send_request(from_user, to_user) -> Friendship:
     if existing is not None:
         if existing.status == Friendship.ACCEPTED:
             raise ValueError("You're already friends.")
+        if accepted:
+            existing.status = Friendship.ACCEPTED
+            existing.save(update_fields=["status"])
+            return existing
         raise ValueError("Request already sent.")
-    return Friendship.objects.create(from_user=from_user, to_user=to_user)
+    status = Friendship.ACCEPTED if accepted else Friendship.PENDING
+    return Friendship.objects.create(from_user=from_user, to_user=to_user, status=status)
+
+
+def invite_for(user) -> FriendInvite:
+    invite, _ = FriendInvite.objects.get_or_create(user=user)
+    return invite
+
+
+def reset_invite(user) -> FriendInvite:
+    invite = invite_for(user)
+    invite.token = new_invite_token()
+    invite.save(update_fields=["token"])
+    return invite

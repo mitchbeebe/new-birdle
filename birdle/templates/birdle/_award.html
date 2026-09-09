@@ -1,7 +1,7 @@
 <div class="col-6 col-md-4 col-lg-3">
     <div class="card h-100 award{% if not award.earned %} award-locked{% endif %}">
         <div class="card-body p-2">
-            <div class="award-icon"><i class="fas {{ award.icon }}"></i></div>
+            <div class="award-icon">{% for icon in award.icons %}<i class="fas {{ icon }}"></i>{% endfor %}</div>
             <div class="fw-semibold">{{ award.title }}</div>
             <div class="small text-body-secondary">{{ award.detail }}</div>
             {% if not award.earned %}<div class="small text-body-secondary"><i class="fas fa-lock"></i> Locked</div>{% endif %}

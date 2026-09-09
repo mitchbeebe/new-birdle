@@ -26,7 +26,8 @@
 {% endif %}
 <hr>
 {% google_login_enabled as show_google_login %}
-{% if show_google_login %}
+{% get_social_accounts user as accounts %}
+{% if show_google_login and not accounts.google %}
 <a href="{% provider_login_url 'google' process='connect' %}" class="btn btn-outline-primary w-100"><i class="fa-brands fa-google"></i> Connect Google</a>
 {% endif %}
 <p class="text-center mt-3 mb-0"><a href="{% url 'profile' %}">Back to profile</a></p>

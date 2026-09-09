@@ -7,14 +7,28 @@ import requests.adapters
 from bs4 import BeautifulSoup
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import redirect_to_login
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import redirect, render
 from urllib.parse import quote, unquote, urlparse
 from django.contrib.auth.models import User
-from .models import Bird, Guess, Game, Membership, UserGame, Image, BirdRegion, Region
-from .forms import BirdRegionForm, UsernameForm
+from .models import (
+    Bird,
+    CustomRegion,
+    Guess,
+    Game,
+    Membership,
+    UserGame,
+    Image,
+    BirdRegion,
+    Region,
+)
+from .forms import BirdRegionForm, CustomRegionForm, UsernameForm, practice_pool
+from . import ebird
 from . import premium as premium_lib
+from .signals import merge_anonymous_history
+from .premium import premium_required
 from django.core.cache import cache
 from django.db.models import Count, Exists, OuterRef, Q
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
@@ -28,6 +42,37 @@ from random import choices
 from pandas import date_range
 
 logger = logging.getLogger(__name__)
+
+# Public code for a premium user's custom region; resolved per user to ``near-me-<pk>``.
+CUSTOM_REGION_CODE = "near-me"
+CUSTOM_REGION_NAME = "Near me"
+# Paths under /<region>/ that the region switcher preserves when changing regions.
+REGION_PAGE_SUFFIXES = {"stats", "archive"}
+
+
+def custom_region_db_code(user) -> str:
+    return f"{CUSTOM_REGION_CODE}-{user.pk}"
+
+
+def resolve_region_code(request, region_code):
+    """Map a public region code to the Region.code used in the database.
+
+    Fixed regions pass through. ``custom`` resolves to the logged-in premium user's own
+    region; otherwise returns a redirect (login / premium) or raises 404.
+    """
+    if region_code in get_regions():
+        return region_code
+    if region_code != CUSTOM_REGION_CODE:
+        raise Http404("Region not found")
+    if not request.user.is_authenticated:
+        return redirect_to_login(request.get_full_path())
+    if not premium_lib.is_premium(request.user):
+        return redirect("premium")
+    custom = CustomRegion.objects.filter(user=request.user).first()
+    if custom is None or custom.species_count == 0:
+        # Not set up yet: send them to the profile to build it.
+        return redirect("profile")
+    return custom.region.code
 
 
 def random_bird(region_code="world"):
@@ -71,19 +116,20 @@ def todays_game(region_code="world", tz=None):
         # Assumes an already created game is valid
         game = Game.objects.get(date=today, region=region)
     except Game.DoesNotExist:
-        # Randomly select a bird
-        bird = random_bird(region_code)
-        imgs = get_bird_images(bird)
+        game = _create_game(region, today)
+    return game
 
-        # Create game if at least two images
+
+def _create_game(region, game_date):
+    """Draw a bird with at least two images and create the game for ``game_date``."""
+    while True:
+        bird = random_bird(region.code)
+        imgs = get_bird_images(bird)
         if len(imgs) >= 2:
             game, _ = Game.objects.update_or_create(
-                date=today, region=region, defaults={"bird": bird}
+                date=game_date, region=region, defaults={"bird": bird}
             )
-        else:
-            # Redraw bird if fewer than 2 images
-            return todays_game(region_code, tz)
-    return game
+            return game
 
 
 def _stats_cache_key(username, region_code):
@@ -97,9 +143,11 @@ def daily_bird(request, region_code=None):
         return redirect("daily_bird_region", region_code=region_code)
 
     # Validate region code
-    if region_code not in get_regions():
-        raise Http404("Region not found")
+    resolved = resolve_region_code(request, region_code)
+    if isinstance(resolved, HttpResponse):
+        return resolved
     request.session["region_code"] = region_code
+    region_code = resolved
 
     user_tz = get_user_timezone(request)
     game = todays_game(region_code, tz=user_tz)
@@ -109,13 +157,21 @@ def daily_bird(request, region_code=None):
 
 
 def _session_user(request):
-    # Get user if available
+    """The player: the logged-in account, else the anonymous user tracked by this browser.
+
+    ``user_id`` is the pre-accounts anonymous id some browsers still send from localStorage.
+    It must never override a logged-in account, but any history it points at is folded in.
+    """
     old_username = request.POST.get("user_id")
-    if old_username:
-        username = old_username
+    if request.user.is_authenticated:
+        user = request.user
+        for stale in {old_username, request.session.get("username")} - {None, "", user.username}:
+            merge_anonymous_history(request, user, anon_username=stale)
     else:
-        username = request.session.get("username", int(datetime.now().timestamp() * 100))
-    user, _ = User.objects.get_or_create(username=username)
+        username = old_username or request.session.get(
+            "username", int(datetime.now().timestamp() * 100)
+        )
+        user, _ = User.objects.get_or_create(username=username)
     request.session["username"] = user.username
     return user
 
@@ -208,31 +264,96 @@ def _play(request, game, usergame, region_code, archive=False):
         return JsonResponse(context)
 
 
+def _render_profile(request, form=None, region_form=None, saved=False):
+    custom = CustomRegion.objects.filter(user=request.user).first()
+    if form is None:
+        form = UsernameForm(instance=request.user)
+    if region_form is None:
+        region_form = CustomRegionForm(instance=custom)
+    context = {
+        "form": form,
+        "saved": saved,
+        "custom_region": custom,
+        "region_form": region_form,
+        "ebird_enabled": settings.EBIRD_ENABLED,
+    }
+    # The custom region form posts via htmx and swaps just its own section.
+    template = "birdle/_custom_region.html" if request.htmx else "birdle/profile.html"
+    return render(request, template, context)
+
+
 @login_required
 def profile(request):
     saved = False
+    form = None
     if request.method == "POST":
         form = UsernameForm(request.POST, instance=request.user)
         if form.is_valid():
             form.save()
             request.session["username"] = request.user.username
             saved = True
-    else:
-        form = UsernameForm(instance=request.user)
-    return render(request, "birdle/profile.html", {"form": form, "saved": saved})
+    return _render_profile(request, form=form, saved=saved)
+
+
+@premium_required
+@require_http_methods(["POST"])
+def custom_region(request):
+    """Create/update the user's custom region and (re)build its species pool."""
+    custom = CustomRegion.objects.filter(user=request.user).first()
+    region_form = CustomRegionForm(request.POST, instance=custom)
+    if not region_form.is_valid():
+        return _render_profile(request, region_form=region_form)
+    custom = region_form.save(commit=False)
+    if custom.region_id is None:
+        custom.user = request.user
+        # get_or_create: a Region can outlive its CustomRegion (e.g. after a migration rollback).
+        custom.region, _ = Region.objects.get_or_create(
+            code=custom_region_db_code(request.user), defaults={"name": CUSTOM_REGION_NAME}
+        )
+    custom.save()
+    try:
+        ebird.build_pool(custom)
+    except ebird.EbirdError as exc:
+        region_form.add_error(None, str(exc))
+        return _render_profile(request, region_form=region_form)
+    cache.delete(_stats_cache_key(request.user.username, custom.region.code))
+    if request.htmx:
+        return _render_profile(request)
+    return redirect("profile")
+
+
+@premium_required
+@require_http_methods(["POST"])
+def custom_region_delete(request):
+    custom = CustomRegion.objects.filter(user=request.user).first()
+    if custom is not None:
+        # Cascades to the CustomRegion, its BirdRegion pool, and its games.
+        custom.region.delete()
+    if request.session.get("region_code") == CUSTOM_REGION_CODE:
+        request.session["region_code"] = "world"
+    if request.htmx:
+        return _render_profile(request)
+    return redirect("profile")
 
 
 def _validate_region(request, region_code):
-    if region_code not in get_regions():
-        raise Http404("Region not found")
+    """Validate a public region code; returns the Region.code to query, or a redirect."""
+    resolved = resolve_region_code(request, region_code)
+    if isinstance(resolved, HttpResponse):
+        return resolved
     request.session["region_code"] = region_code
+    return resolved
 
 
 def _today(tz):
     return datetime.now(timezone.utc).astimezone(tz).date()
 
 
-def _past_game_or_404(region_code, date_str, tz):
+def _past_game_or_404(region_code, date_str, tz, create_from=None):
+    """Look up a past game; for a near-me region, create it on demand back to ``create_from``.
+
+    A near-me region has a single player, so days they didn't open have no Game row yet.
+    """
     try:
         game_date = date.fromisoformat(date_str)
     except ValueError:
@@ -244,7 +365,19 @@ def _past_game_or_404(region_code, date_str, tz):
             date=game_date, region__code=region_code
         )
     except Game.DoesNotExist:
-        raise Http404("No game for that date")
+        if create_from is None or game_date < create_from:
+            raise Http404("No game for that date")
+        return _create_game(Region.objects.get(code=region_code), game_date)
+
+
+def _custom_region_start(request, db_code, tz):
+    """Date a near-me region's pool was built (in the user's tz), or None for fixed regions."""
+    if not db_code.startswith(f"{CUSTOM_REGION_CODE}-"):
+        return None
+    custom = CustomRegion.objects.filter(user=request.user).first()
+    if custom is None or custom.built_at is None:
+        return None
+    return custom.built_at.astimezone(tz).date()
 
 
 def _month_param(value, today):
@@ -261,16 +394,22 @@ def _add_months(month, n):
 
 @premium_lib.premium_required
 def archive(request, region_code):
-    _validate_region(request, region_code)
+    db_code = _validate_region(request, region_code)
+    if isinstance(db_code, HttpResponse):
+        return db_code
     user_tz = get_user_timezone(request)
     today = _today(user_tz)
     month = _month_param(request.GET.get("month"), today)
-    first_game = Game.objects.filter(region__code=region_code).order_by("date").first()
-    first_month = first_game.date.replace(day=1) if first_game else today.replace(day=1)
+    first_game = Game.objects.filter(region__code=db_code).order_by("date").first()
+    first_date = first_game.date if first_game else today
+    playable_from = _custom_region_start(request, db_code, user_tz)
+    if playable_from is not None:
+        first_date = min(first_date, playable_from)
+    first_month = first_date.replace(day=1)
     month = min(max(month, first_month), today.replace(day=1))
 
     games = Game.objects.filter(
-        region__code=region_code,
+        region__code=db_code,
         date__gte=month,
         date__lt=min(_add_months(month, 1), today),
     ).select_related("bird")
@@ -293,6 +432,9 @@ def archive(request, region_code):
         game_date = month.replace(day=day)
         game = by_date.get(game_date)
         if game is None:
+            # Near-me days without a game yet are still playable; created on click.
+            if playable_from is not None and playable_from <= game_date < today:
+                return {"day": day, "date": game_date, "result": "Not played", "finished": False}
             return {"day": day}
         usergame = by_game.get(game.pk)
         if usergame is None or usergame.num_guesses == 0:
@@ -328,9 +470,13 @@ def archive(request, region_code):
 
 @premium_lib.premium_required
 def archive_game(request, region_code, date):
-    _validate_region(request, region_code)
+    db_code = _validate_region(request, region_code)
+    if isinstance(db_code, HttpResponse):
+        return db_code
     user_tz = get_user_timezone(request)
-    game = _past_game_or_404(region_code, date, user_tz)
+    game = _past_game_or_404(
+        db_code, date, user_tz, create_from=_custom_region_start(request, db_code, user_tz)
+    )
     user = _session_user(request)
     usergame, _ = UserGame.objects.get_or_create(
         user=user, game=game, defaults={"is_archive": True}
@@ -345,9 +491,11 @@ def stats(request, region_code=None):
         return redirect("stats_region", region_code=region_code)
 
     # Validate region code
-    if region_code not in get_regions():
-        raise Http404("Region not found")
+    resolved = resolve_region_code(request, region_code)
+    if isinstance(resolved, HttpResponse):
+        return resolved
     request.session["region_code"] = region_code
+    region_code = resolved
 
     username = request.session.get("username")
     user_tz = get_user_timezone(request)
@@ -465,27 +613,27 @@ def practice(request, **kwargs):
             decoded_region = unquote(region) if region else "Any"
             decoded_family = unquote(family) if family else "Any"
 
-            birdregions = BirdRegion.objects.all()
             if decoded_region == "Any" and decoded_family == "Any":
                 birds = Bird.objects.all()
             else:
-                if decoded_region != "Any":
-                    birdregions = birdregions.filter(region__name=decoded_region)
-                if decoded_family != "Any":
-                    birdregions = birdregions.filter(bird__family=decoded_family)
-                birds = [x.bird for x in birdregions]
+                pool = practice_pool(request.user, decoded_region, decoded_family)
+                birds = [x.bird for x in pool.select_related("bird")]
+            if not birds:
+                raise Http404("No birds to practice with")
 
             birds_choices = choices(birds, k=4)
             bird = choices(birds_choices, k=1)[0]
             imgs = get_bird_images(bird=bird)
             options = list(set([bird.name for bird in birds_choices]))
             data.update({"imgs": imgs, "options": options, "answer": bird})
-            form = BirdRegionForm(initial={"region": decoded_region, "family": decoded_family})
+            form = BirdRegionForm(
+                initial={"region": decoded_region, "family": decoded_family}, user=request.user
+            )
         else:
-            form = BirdRegionForm()
+            form = BirdRegionForm(user=request.user)
         return render(request, "birdle/practice.html", {"form": form, **data})
     elif request.method == "POST":
-        form = BirdRegionForm(request.POST)
+        form = BirdRegionForm(request.POST, user=request.user)
         if form.is_valid():
             region = quote(form.cleaned_data["region"])
             family = quote(form.cleaned_data["family"])
@@ -553,6 +701,8 @@ def get_bird_images(bird, game=None):
 def bird_autocomplete(request):
     # Only show birds in region
     region_code = request.session.get("region_code", "world")
+    if region_code == CUSTOM_REGION_CODE and request.user.is_authenticated:
+        region_code = custom_region_db_code(request.user)
 
     query = request.GET.get("guess-input", "") or request.GET.get("term", "")
     q = Q()
@@ -613,6 +763,12 @@ def get_regions():
 
 
 @register.simple_tag
+def get_nav_regions():
+    """Regions shown in the nav dropdown; the template disables custom for non-members."""
+    return {CUSTOM_REGION_CODE: CUSTOM_REGION_NAME, **get_regions()}
+
+
+@register.simple_tag
 def google_login_enabled():
     return bool(settings.GOOGLE_OAUTH_CLIENT_ID)
 
@@ -639,6 +795,8 @@ def current_region_code(context):
 @register.filter
 def region_name(code):
     """Convert region code to display name."""
+    if code == CUSTOM_REGION_CODE:
+        return CUSTOM_REGION_NAME
     return get_regions().get(code, "World")
 
 
@@ -646,9 +804,11 @@ def region(request):
     region_code = request.htmx.trigger_name
 
     # Validate region code
-    regions = get_regions()
-    if region_code not in regions:
-        raise Http404("Region not found")
+    regions = get_nav_regions()
+    resolved = resolve_region_code(request, region_code)
+    if isinstance(resolved, HttpResponse):
+        # htmx would swap a followed redirect into the nav; tell it to navigate instead.
+        return HttpResponse(headers={"HX-Redirect": resolved["Location"]})
 
     request.session["region_code"] = region_code
 
@@ -666,6 +826,9 @@ def region(request):
         # Path has no region prefix
         suffix = path_parts[0] if path_parts[0] else ""
 
+    # Only regional sub-pages carry over; anything else (e.g. /accounts/profile/) goes home.
+    if suffix not in REGION_PAGE_SUFFIXES:
+        suffix = ""
     redirect_path = f"/{region_code}/{suffix}/" if suffix else f"/{region_code}/"
     redirect_path = redirect_path.replace("//", "/")
 
@@ -832,7 +995,9 @@ def build_results_emojis(game, guesses):
         row = "".join(["🐦" if i else "❌" for i in taxonomy]) + used_hint
         results.append(row)
     emojis = "\n".join(results)
-    link = f"https://www.play-birdle.com/{region.code}/"
+    # A custom region is private to its owner, so point others at the premium page instead.
+    is_custom = region.code.startswith(f"{CUSTOM_REGION_CODE}-")
+    link = f"https://www.play-birdle.com/{'premium' if is_custom else region.code}/"
     return f"{region.name} Birdle\n{date}\n{emojis}\n{link}"
 
 

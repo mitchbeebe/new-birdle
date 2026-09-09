@@ -125,3 +125,10 @@
     width: 14.2857%;
     overflow: hidden;
 }
+.archive-calendar tbody td {
+    height: 3.5rem;
+    vertical-align: top;
+}
+.archive-calendar tbody td > a {
+    height: 100%;
+}

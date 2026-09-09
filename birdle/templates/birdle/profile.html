@@ -20,15 +20,15 @@
     </div>
     <button type="submit" class="btn btn-primary w-100">Save</button>
 </form>
-<hr>
-<div class="d-grid gap-2">
+<p class="text-center mt-3 mb-0">
     {% if user.has_usable_password %}
-    <a href="{% url 'account_change_password' %}" class="btn btn-outline-secondary">Change password</a>
+    <a href="{% url 'account_change_password' %}">Change password</a>
     {% else %}
-    <a href="{% url 'account_set_password' %}" class="btn btn-outline-secondary">Set a password</a>
+    <a href="{% url 'account_set_password' %}">Set a password</a>
     {% endif %}
-    <a href="{% url 'account_reset_password' %}" class="btn btn-link">Forgot your password?</a>
-</div>
+    &middot; <a href="{% url 'socialaccount_connections' %}">Connected accounts</a>
+</p>
+{% include 'birdle/_custom_region.html' %}
 <hr>
 <form method="post" action="{% url 'account_logout' %}">
     {% csrf_token %}

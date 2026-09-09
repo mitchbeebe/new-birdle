@@ -33,6 +33,12 @@ urlpatterns = [
     path("region", views.region),
     path("admin/", admin.site.urls),
     path("accounts/profile/", views.profile, name="profile"),
+    path("accounts/profile/custom-region/", views.custom_region, name="custom_region"),
+    path(
+        "accounts/profile/custom-region/delete/",
+        views.custom_region_delete,
+        name="custom_region_delete",
+    ),
     path("accounts/", include("allauth.urls")),
     path("premium/", views.premium, name="premium"),
     path("premium/checkout/", views.premium_checkout, name="premium_checkout"),

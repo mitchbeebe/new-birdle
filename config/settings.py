@@ -49,7 +49,9 @@ if not IS_HEROKU_APP:
 if IS_HEROKU_APP:
     ALLOWED_HOSTS = ["*"]
 else:
-    ALLOWED_HOSTS = []
+    # Comma-separated extra hosts for local testing from other devices (LAN IP, Tailscale, ...).
+    # DEBUG already allows localhost.
+    ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h.strip()]
 
 
 # Application definition
@@ -100,6 +102,10 @@ LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGOUT_REDIRECT_URL = "/"
 SOCIALACCOUNT_LOGIN_ON_GET = True
+# Google verifies emails, so a social login whose email matches an existing local
+# account logs into that account and links the Google account to it.
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
 
 GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
 SOCIALACCOUNT_PROVIDERS: dict[str, dict] = {
@@ -123,6 +129,12 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_ENABLED = bool(STRIPE_SECRET_KEY and STRIPE_PRICE_ID)
+
+# eBird API (custom regions from nearby observations); unset disables the feature
+EBIRD_API_KEY = os.getenv("EBIRD_API_KEY", "")
+EBIRD_ENABLED = bool(EBIRD_API_KEY)
+# latlng.work forward geocoding, so users can type a place instead of coordinates
+LATLNG_API_KEY = os.getenv("LATLNG_API_KEY", "")
 
 # Email (Resend SMTP in production, console locally)
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Birdle <noreply@play-birdle.com>")
@@ -244,4 +256,6 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.play-birdle.com",
     "http://www.play-birdle.com",
     "https://www.play-birdle.com/region",
+    # Extra hosts are reachable over http (LAN) and https (Tailscale funnel).
+    *[f"{scheme}://{h}" for h in ALLOWED_HOSTS for scheme in ("http", "https")],
 ]

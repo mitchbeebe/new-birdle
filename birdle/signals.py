@@ -16,9 +16,13 @@ def is_anonymous_user(user):
     return passwordless and user.email == "" and user.username.isdigit()
 
 
-def merge_anonymous_history(request, user):
-    """Move the session's anonymous game history onto ``user`` and drop the anonymous row."""
-    anon_username = request.session.get("username")
+def merge_anonymous_history(request, user, anon_username=None):
+    """Move an anonymous user's game history onto ``user`` and drop the anonymous row.
+
+    Defaults to the session's username; pass ``anon_username`` to merge a different one.
+    """
+    if anon_username is None:
+        anon_username = request.session.get("username")
     if anon_username and anon_username != user.username:
         try:
             anon_user = User.objects.get(username=anon_username)

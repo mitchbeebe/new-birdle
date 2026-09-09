@@ -1,15 +1,29 @@
 import json
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from unittest.mock import patch
 
 from allauth.socialaccount.adapter import get_adapter as get_socialaccount_adapter
 from allauth.socialaccount.models import SocialAccount, SocialLogin
 from django.contrib.auth.models import AnonymousUser, User
+from django.core.cache import cache
 from django.http import HttpResponse
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone as django_timezone
 
-from .models import Bird, BirdRegion, Game, Guess, Image, Membership, Region, UserGame
+from .models import (
+    Bird,
+    BirdRegion,
+    CustomRegion,
+    Game,
+    Guess,
+    Image,
+    Membership,
+    Region,
+    UserGame,
+)
+from .ebird import EbirdError, fetch_nearby_species_codes
+from .geocode import GeocodeError, lookup, reverse_lookup
 from .premium import premium_required
 from .signals import merge_anonymous_history
 from .views import random_bird
@@ -148,6 +162,44 @@ class AnonymousMergeTests(AccountsTestMixin, TestCase):
         self.assertTrue(User.objects.filter(pk=other.pk).exists())
         self.assertEqual(UserGame.objects.get(game=game).user, other)
         self.assertEqual(self.session["username"], self.account.username)
+
+    def test_stale_localstorage_user_id_cannot_hijack_logged_in_account(self):
+        game = self.make_game(self.region, date.today())
+        for i in range(2):
+            Image.objects.create(url=f"u{i}", bird=game.bird)
+        old_game = self.make_game(self.region, date(2024, 1, 1))
+        old_usergame = UserGame.objects.create(user=self.anon, game=old_game)
+        Guess.objects.create(usergame=old_usergame, bird=old_game.bird)
+        self.client.force_login(self.account)
+        self.client.cookies["timezone"] = "UTC"
+
+        # The browser still sends its pre-accounts anonymous id with every guess.
+        response = self.client.post(
+            "/world/",
+            {"guess-input": game.bird.name, "game_id": game.pk, "user_id": self.anon.username},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.session["username"], "alice")
+        self.assertEqual(UserGame.objects.get(game=game).user, self.account)
+        # ...and that anonymous history is folded into the account, not left behind.
+        self.assertEqual(UserGame.objects.get(game=old_game).user, self.account)
+        self.assertFalse(User.objects.filter(username=self.anon.username).exists())
+        # The page now shows the guess without needing another submit.
+        self.assertEqual(self.client.get("/world/").context["guess_count"], 1)
+
+    def test_anonymous_localstorage_user_id_still_identifies_player(self):
+        game = self.make_game(self.region, date.today())
+        for i in range(2):
+            Image.objects.create(url=f"u{i}", bird=game.bird)
+        self.client.cookies["timezone"] = "UTC"
+        response = self.client.post(
+            "/world/",
+            {"guess-input": game.bird.name, "game_id": game.pk, "user_id": self.anon.username},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(UserGame.objects.get(game=game).user, self.anon)
 
     def test_session_username_updated_on_login(self):
         game = self.make_game(self.region, date(2024, 1, 1))
@@ -604,3 +656,406 @@ class ArchiveTests(TestCase):
         response = self.client.get("/world/stats/")
         self.assertEqual(response.context["games_won"], 0)
         self.assertEqual(response.context["games_played"], 0)
+
+
+@plain_static_storage
+@override_settings(EBIRD_API_KEY="test-key", EBIRD_ENABLED=True, LATLNG_API_KEY="")
+class CustomRegionTests(TestCase):
+    FORM = {"lat": "40.71", "lng": "-74.01"}
+
+    def setUp(self):
+        Region.objects.get_or_create(code="world", defaults={"name": "World"})
+        self.user = User.objects.create_user("alice", "alice@example.com", "s3cret-pass")
+        self.birds = [make_bird(code) for code in ("amerob", "norcar", "blujay")]
+        for bird in self.birds:
+            for i in range(2):
+                Image.objects.create(url=f"https://example.com/{bird.species_code}/{i}", bird=bird)
+        cache.clear()
+
+    def go_premium(self):
+        Membership.objects.create(
+            user=self.user, comp_until=django_timezone.now() + timedelta(days=1)
+        )
+        self.client.force_login(self.user)
+
+    def build(self, codes, data=None):
+        with patch("birdle.ebird.fetch_nearby_species_codes", return_value=codes) as fetch:
+            response = self.client.post("/accounts/profile/custom-region/", data or self.FORM)
+        return response, fetch
+
+    def pool(self):
+        custom = CustomRegion.objects.get(user=self.user)
+        return set(
+            BirdRegion.objects.filter(region=custom.region).values_list("bird_id", flat=True)
+        )
+
+    def test_pool_built_from_known_species_only(self):
+        self.go_premium()
+        response, fetch = self.build(["amerob", "blujay", "unknown-code"])
+        self.assertRedirects(response, "/accounts/profile/")
+        fetch.assert_called_once()
+        custom = CustomRegion.objects.get(user=self.user)
+        self.assertEqual(custom.region.code, f"near-me-{self.user.pk}")
+        self.assertEqual(custom.region.name, "Near me")
+        self.assertEqual(custom.species_count, 2)
+        self.assertIsNotNone(custom.built_at)
+        self.assertEqual(self.pool(), {self.birds[0].id, self.birds[2].id})
+        self.assertContains(self.client.get("/accounts/profile/"), "2 species")
+
+    def test_empty_response_saves_empty_pool_with_warning(self):
+        self.go_premium()
+        self.build([])
+        self.assertEqual(self.pool(), set())
+        response = self.client.get("/accounts/profile/")
+        self.assertContains(response, "0 species")
+        self.assertContains(response, "small pool")
+        # Nothing to play, so /near-me/ sends them back to the profile.
+        self.assertRedirects(self.client.get("/near-me/"), "/accounts/profile/")
+
+    def test_rebuild_replaces_pool(self):
+        self.go_premium()
+        self.build(["amerob"])
+        self.assertEqual(self.pool(), {self.birds[0].id})
+        with patch("birdle.ebird.fetch_nearby_species_codes", return_value=["norcar"]):
+            self.client.post("/accounts/profile/custom-region/", self.FORM)
+        self.assertEqual(self.pool(), {self.birds[1].id})
+        self.assertEqual(CustomRegion.objects.filter(user=self.user).count(), 1)
+        self.assertEqual(Region.objects.filter(code__startswith="near-me-").count(), 1)
+
+    def test_ebird_error_renders_form_error(self):
+        self.go_premium()
+        with patch(
+            "birdle.ebird.fetch_nearby_species_codes",
+            side_effect=EbirdError("eBird returned HTTP 500."),
+        ):
+            response = self.client.post("/accounts/profile/custom-region/", self.FORM)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "eBird returned HTTP 500.")
+
+    def test_invalid_coordinates_rejected(self):
+        self.go_premium()
+        response, fetch = self.build(["amerob"], {**self.FORM, "lat": "91"})
+        self.assertContains(response, "out of range")
+        fetch.assert_not_called()
+        self.assertFalse(CustomRegion.objects.exists())
+
+    def test_build_adopts_orphaned_region_row(self):
+        self.go_premium()
+        Region.objects.create(code=f"near-me-{self.user.pk}", name="Near me")
+        response, _ = self.build(["amerob"])
+        self.assertRedirects(response, "/accounts/profile/")
+        self.assertEqual(Region.objects.filter(code=f"near-me-{self.user.pk}").count(), 1)
+        self.assertEqual(CustomRegion.objects.get(user=self.user).species_count, 1)
+
+    def test_typed_location_is_geocoded(self):
+        self.go_premium()
+        with patch(
+            "birdle.geocode.lookup", return_value=(Decimal("45.52"), Decimal("-122.67"), "Portland")
+        ) as lookup:
+            response, fetch = self.build(["amerob"], {"location": "Portland, OR"})
+        self.assertRedirects(response, "/accounts/profile/")
+        lookup.assert_called_once_with("Portland, OR")
+        custom = CustomRegion.objects.get(user=self.user)
+        self.assertEqual(
+            (custom.lat, custom.lng, custom.location),
+            (Decimal("45.52"), Decimal("-122.67"), "Portland"),
+        )
+        self.assertEqual(fetch.call_args.args[:2], (Decimal("45.52"), Decimal("-122.67")))
+        self.assertContains(self.client.get("/accounts/profile/"), "Portland")
+
+    def test_geolocation_coordinates_are_reverse_geocoded(self):
+        self.go_premium()
+        with patch("birdle.geocode.lookup") as lookup:
+            with patch("birdle.geocode.reverse_lookup", return_value="Portland, OR") as reverse:
+                self.build(["amerob"], {**self.FORM, "location": "ignored"})
+        lookup.assert_not_called()
+        reverse.assert_called_once_with(Decimal("40.71"), Decimal("-74.01"))
+        self.assertEqual(CustomRegion.objects.get(user=self.user).location, "Portland, OR")
+        self.assertContains(self.client.get("/accounts/profile/"), "Portland, OR")
+
+    def test_reverse_geocode_failure_falls_back_to_coordinates(self):
+        self.go_premium()
+        with patch("birdle.geocode.reverse_lookup", side_effect=GeocodeError("down")):
+            self.build(["amerob"])
+        self.assertEqual(CustomRegion.objects.get(user=self.user).location, "")
+        self.assertContains(self.client.get("/accounts/profile/"), "40.71, -74.01")
+
+    def test_location_errors_render_as_form_errors(self):
+        self.go_premium()
+        response, fetch = self.build(["amerob"], {"location": ""})
+        self.assertContains(response, "Enter a location")
+        with patch("birdle.geocode.lookup", side_effect=GeocodeError("No place matched zzqq")):
+            response, fetch = self.build(["amerob"], {"location": "zzqq"})
+        self.assertContains(response, "No place matched zzqq")
+        fetch.assert_not_called()
+        self.assertFalse(CustomRegion.objects.exists())
+
+    def test_anonymous_redirected_to_login(self):
+        response = self.client.get("/near-me/")
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response["Location"].startswith("/accounts/login/"))
+        response = self.client.post("/accounts/profile/custom-region/", self.FORM)
+        self.assertTrue(response["Location"].startswith("/accounts/login/"))
+
+    def test_non_premium_redirected_to_premium(self):
+        self.client.force_login(self.user)
+        self.assertRedirects(self.client.get("/near-me/"), "/premium/")
+        self.assertRedirects(self.client.get("/near-me/stats/"), "/premium/")
+        response = self.client.post("/accounts/profile/custom-region/", self.FORM)
+        self.assertRedirects(response, "/premium/")
+        # The section is visible but disabled, pointing at the premium page.
+        profile = self.client.get("/accounts/profile/")
+        self.assertContains(profile, "Near me")
+        self.assertContains(profile, "<fieldset disabled>")
+        self.assertContains(profile, "This is a premium feature")
+
+    def test_premium_without_region_redirected_to_profile(self):
+        self.go_premium()
+        self.assertRedirects(self.client.get("/near-me/"), "/accounts/profile/")
+        response = self.client.post(
+            "/region",
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TRIGGER_NAME="near-me",
+            HTTP_HX_CURRENT_URL="http://testserver/world/",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["HX-Redirect"], "/accounts/profile/")
+
+    def test_premium_user_can_play_and_see_stats(self):
+        self.go_premium()
+        self.build(["amerob"])
+        response = self.client.get("/near-me/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.session["region_code"], "near-me")
+        game = Game.objects.get(region__code=f"near-me-{self.user.pk}")
+        self.assertEqual(game.bird, self.birds[0])
+        self.assertEqual(
+            response.context["emojis"],
+            f"Near me Birdle\n{game.date}\n\nhttps://www.play-birdle.com/premium/",
+        )
+
+        # Autocomplete only offers the pool.
+        suggestions = self.client.get("/api/birds/", {"guess-input": ""})
+        self.assertContains(suggestions, "amerob")
+        self.assertNotContains(suggestions, "norcar")
+
+        response = self.client.post(
+            "/near-me/", {"guess-input": "amerob", "game_id": game.pk}, HTTP_HX_REQUEST="true"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["is_winner"])
+        self.assertTrue(UserGame.objects.get(game=game).is_winner)
+
+        response = self.client.get("/near-me/stats/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["games_played"], 1)
+
+        # The archive resolves the custom region too.
+        response = self.client.get("/near-me/archive/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Near me")
+
+    def test_archive_creates_missed_days_on_demand(self):
+        self.go_premium()
+        self.build(["amerob", "norcar"])
+        self.client.cookies["timezone"] = "UTC"
+        custom = CustomRegion.objects.get(user=self.user)
+        custom.built_at = django_timezone.now() - timedelta(days=3)
+        custom.save(update_fields=["built_at"])
+        today = datetime.now(timezone.utc).date()
+        yesterday = (today - timedelta(days=1)).isoformat()
+        long_ago = (today - timedelta(days=10)).isoformat()
+
+        # Calendar offers the missed days as playable even though no Game rows exist yet.
+        self.assertEqual(Game.objects.filter(region=custom.region).count(), 0)
+        response = self.client.get(f"/near-me/archive/?month={today.strftime('%Y-%m')}")
+        self.assertContains(response, f"/near-me/archive/{yesterday}/")
+        self.assertNotContains(response, f"/near-me/archive/{long_ago}/")
+
+        response = self.client.get(f"/near-me/archive/{yesterday}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Game.objects.filter(region=custom.region).count(), 1)
+        # Opening it again reuses the same game.
+        self.client.get(f"/near-me/archive/{yesterday}/")
+        self.assertEqual(Game.objects.filter(region=custom.region).count(), 1)
+        # Before the pool existed there's nothing to play.
+        self.assertEqual(self.client.get(f"/near-me/archive/{long_ago}/").status_code, 404)
+        # Fixed regions still 404 on days nobody played.
+        self.assertEqual(self.client.get(f"/world/archive/{yesterday}/").status_code, 404)
+
+    def test_fixed_regions_unaffected(self):
+        self.assertEqual(self.client.get("/nope/").status_code, 404)
+        self.assertEqual(self.client.get("/near-me-1/").status_code, 404)
+        # Free users see the premium entries disabled, linking to the premium page.
+        page = self.client.get("/premium/")
+        self.assertContains(page, "Near me <span")
+        self.assertContains(page, "Archive <span")
+        self.assertNotContains(page, "name=near-me")
+        self.go_premium()
+        page = self.client.get("/premium/")
+        self.assertContains(page, "name=near-me")
+        self.assertContains(page, "/archive/")
+
+    def test_region_switcher_from_profile_goes_home(self):
+        self.go_premium()
+        self.build(["amerob"])
+        response = self.client.post(
+            "/region",
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TRIGGER_NAME="near-me",
+            HTTP_HX_CURRENT_URL="http://testserver/accounts/profile/",
+        )
+        self.assertEqual(response["HX-Redirect"], "/near-me/")
+        self.assertEqual(self.client.session["region_code"], "near-me")
+        response = self.client.post(
+            "/region",
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TRIGGER_NAME="world",
+            HTTP_HX_CURRENT_URL="http://testserver/near-me/stats/",
+        )
+        self.assertEqual(response["HX-Redirect"], "/world/stats/")
+
+    def test_htmx_post_returns_only_the_section(self):
+        self.go_premium()
+        with patch("birdle.ebird.fetch_nearby_species_codes", return_value=["amerob"]):
+            response = self.client.post(
+                "/accounts/profile/custom-region/", self.FORM, HTTP_HX_REQUEST="true"
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "1 species")
+        self.assertContains(response, 'id="custom-region"')
+        self.assertNotContains(response, NAVBAR_MARKUP)
+        self.assertNotContains(response, "This is a premium feature")
+        with patch("birdle.ebird.fetch_nearby_species_codes", side_effect=EbirdError("down")):
+            response = self.client.post(
+                "/accounts/profile/custom-region/", self.FORM, HTTP_HX_REQUEST="true"
+            )
+        self.assertContains(response, "down")
+        self.assertNotContains(response, NAVBAR_MARKUP)
+        response = self.client.post(
+            "/accounts/profile/custom-region/delete/", HTTP_HX_REQUEST="true"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "1 species")
+        self.assertFalse(CustomRegion.objects.exists())
+
+    def test_practice_offers_near_me_only_to_owner_with_pool(self):
+        self.go_premium()
+        page = self.client.get("/practice/")
+        self.assertNotContains(page, 'value="Near me"')  # nothing built yet
+        self.build(["amerob"])
+        page = self.client.get("/practice/")
+        self.assertContains(page, 'value="Near me"')
+
+        response = self.client.post("/practice/", {"region": "Near me", "family": "Any"})
+        self.assertEqual(response.status_code, 302)
+        practice_url = response["Location"]
+        response = self.client.get(practice_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["options"], ["amerob"])
+
+        # Another user can't reach this pool through the shared "Near me" name.
+        self.client.logout()
+        self.assertNotContains(self.client.get("/practice/"), 'value="Near me"')
+        self.assertEqual(self.client.get(practice_url).status_code, 404)
+
+    def test_delete_removes_region_and_resets_session(self):
+        self.go_premium()
+        self.build(["amerob"])
+        self.client.get("/near-me/")
+        response = self.client.post("/accounts/profile/custom-region/delete/")
+        self.assertRedirects(response, "/accounts/profile/")
+        self.assertFalse(CustomRegion.objects.exists())
+        self.assertFalse(Region.objects.filter(code__startswith="near-me-").exists())
+        self.assertEqual(self.client.session["region_code"], "world")
+
+
+class FetchNearbySpeciesCodesTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    @override_settings(EBIRD_API_KEY="test-key", EBIRD_ENABLED=True)
+    def test_fetch_parses_and_caches(self):
+        payload = [{"speciesCode": "norcar"}, {"speciesCode": "amerob"}, {"speciesCode": "norcar"}]
+        fake = type("R", (), {"status_code": 200, "json": lambda self: payload})()
+        with patch("birdle.ebird.requests.get", return_value=fake) as get:
+            first = fetch_nearby_species_codes("40.71", "-74.01")
+            second = fetch_nearby_species_codes("40.71", "-74.01")
+        self.assertEqual(first, ["amerob", "norcar"])
+        self.assertEqual(second, first)
+        get.assert_called_once()
+        self.assertEqual(get.call_args.kwargs["headers"], {"X-eBirdApiToken": "test-key"})
+        params = get.call_args.kwargs["params"]
+        self.assertEqual(params["dist"], 50)
+        self.assertEqual(params["back"], 30)
+        self.assertEqual(params["includeProvisional"], "false")
+
+    @override_settings(EBIRD_API_KEY="test-key", EBIRD_ENABLED=True)
+    def test_non_200_raises(self):
+        fake = type("R", (), {"status_code": 403, "json": lambda self: []})()
+        with patch("birdle.ebird.requests.get", return_value=fake):
+            with self.assertRaises(EbirdError):
+                fetch_nearby_species_codes("1", "2")
+
+    @override_settings(EBIRD_API_KEY="", EBIRD_ENABLED=False)
+    def test_unconfigured_raises(self):
+        with self.assertRaises(EbirdError):
+            fetch_nearby_species_codes("1", "2")
+
+
+class GeocodeLookupTests(TestCase):
+    def fake(self, payload, status=200):
+        return type("R", (), {"status_code": status, "json": lambda self: payload})()
+
+    @override_settings(LATLNG_API_KEY="k")
+    def test_parses_best_match(self):
+        payload = {
+            "features": [
+                {
+                    "geometry": {"coordinates": [-122.674194, 45.5202471]},
+                    "properties": {
+                        "name": "Portland",
+                        "state": "Oregon",
+                        "country": "United States",
+                    },
+                }
+            ]
+        }
+        with patch("birdle.geocode.requests.get", return_value=self.fake(payload)) as get:
+            self.assertEqual(
+                lookup("Portland, OR"),
+                (Decimal("45.52"), Decimal("-122.67"), "Portland, Oregon, United States"),
+            )
+        self.assertEqual(get.call_args.kwargs["headers"], {"X-Api-Key": "k"})
+
+    @override_settings(LATLNG_API_KEY="k")
+    def test_reverse_prefers_city_state(self):
+        payload = {
+            "features": [
+                {
+                    "geometry": {"coordinates": [-122.67, 45.52]},
+                    "properties": {
+                        "name": "Oregon Maritime Museum",
+                        "city": "Portland",
+                        "state": "OR",
+                        "country": "United States",
+                    },
+                }
+            ]
+        }
+        with patch("birdle.geocode.requests.get", return_value=self.fake(payload)) as get:
+            self.assertEqual(reverse_lookup("45.52", "-122.67"), "Portland, OR, United States")
+        self.assertEqual(get.call_args.kwargs["params"], {"lat": "45.52", "lon": "-122.67"})
+        with patch("birdle.geocode.requests.get", return_value=self.fake({"features": []})):
+            self.assertEqual(reverse_lookup("0", "0"), "")
+
+    @override_settings(LATLNG_API_KEY="k")
+    def test_no_match_raises(self):
+        with patch("birdle.geocode.requests.get", return_value=self.fake({"features": []})):
+            with self.assertRaises(GeocodeError):
+                lookup("nowhere")
+
+    @override_settings(LATLNG_API_KEY="")
+    def test_unconfigured_raises(self):
+        with self.assertRaises(GeocodeError):
+            lookup("Portland")

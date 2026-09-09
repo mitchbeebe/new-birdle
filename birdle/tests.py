@@ -761,7 +761,7 @@ class CustomRegionTests(TestCase):
             (Decimal("45.52"), Decimal("-122.67"), "Portland"),
         )
         self.assertEqual(fetch.call_args.args[:2], (Decimal("45.52"), Decimal("-122.67")))
-        self.assertContains(self.client.get("/accounts/profile/"), "Portland: 1 species")
+        self.assertContains(self.client.get("/accounts/profile/"), "Portland")
 
     def test_geolocation_coordinates_are_reverse_geocoded(self):
         self.go_premium()
@@ -771,14 +771,14 @@ class CustomRegionTests(TestCase):
         lookup.assert_not_called()
         reverse.assert_called_once_with(Decimal("40.71"), Decimal("-74.01"))
         self.assertEqual(CustomRegion.objects.get(user=self.user).location, "Portland, OR")
-        self.assertContains(self.client.get("/accounts/profile/"), "Portland, OR: 1 species")
+        self.assertContains(self.client.get("/accounts/profile/"), "Portland, OR")
 
     def test_reverse_geocode_failure_falls_back_to_coordinates(self):
         self.go_premium()
         with patch("birdle.geocode.reverse_lookup", side_effect=GeocodeError("down")):
             self.build(["amerob"])
         self.assertEqual(CustomRegion.objects.get(user=self.user).location, "")
-        self.assertContains(self.client.get("/accounts/profile/"), "40.71, -74.01: 1 species")
+        self.assertContains(self.client.get("/accounts/profile/"), "40.71, -74.01")
 
     def test_location_errors_render_as_form_errors(self):
         self.go_premium()

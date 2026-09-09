@@ -3,7 +3,17 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from django.utils.html import format_html
 from django.urls import reverse
-from birdle.models import Bird, Game, Guess, Image, Membership, UserGame, BirdRegion, Region
+from birdle.models import (
+    Bird,
+    CustomRegion,
+    Game,
+    Guess,
+    Image,
+    Membership,
+    UserGame,
+    BirdRegion,
+    Region,
+)
 
 
 def linkify(field_name):
@@ -81,3 +91,10 @@ class MembershipAdmin(admin.ModelAdmin):
     list_display = ["user", "status", "current_period_end", "comp_until"]
     search_fields = ["user__username", "user__email"]
     raw_id_fields = ["user"]
+
+
+@admin.register(CustomRegion)
+class CustomRegionAdmin(admin.ModelAdmin):
+    list_display = ["user", "region", "lat", "lng", "species_count", "built_at"]
+    search_fields = ["user__username", "user__email"]
+    raw_id_fields = ["user", "region"]

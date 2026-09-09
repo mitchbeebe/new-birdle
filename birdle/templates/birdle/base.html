@@ -27,6 +27,20 @@
 
         <!-- HTMX (load normally - needed for page interactivity) -->
         <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
+        <script>
+          // Guard every plain form against double submits: logging in rotates the CSRF token,
+          // so a second click on Sign Up / Log In would be rejected with a 403.
+          // Forms that handle their own submit (guess form, confirm dialogs) cancel the event
+          // and are left alone.
+          document.addEventListener("submit", function (e) {
+            if (e.defaultPrevented) return;
+            e.target.querySelectorAll("button[type=submit]").forEach(function (b) { b.disabled = true; });
+          });
+          // htmx doesn't swap error responses, so say something rather than silently doing nothing.
+          document.addEventListener("htmx:responseError", function (e) {
+            alert("Something went wrong (HTTP " + e.detail.xhr.status + "). Please try again.");
+          });
+        </script>
 
         <link rel="stylesheet" href="{% static 'birdle/style.css' %}">
 
@@ -55,10 +69,16 @@
             <span id="region"> {{request.session.region_code|default:"world"|region_name}}</span>
           </a>
           <ul class="dropdown-menu dropdown-menu-end dropdown-menu-lg-start position-absolute" aria-labelledby="bd-theme-text" data-bs-popper="static">
-            {% get_regions as regions %}
+            {% get_nav_regions as regions %}
             {% for code, name in regions.items %}
             <li>
-              <a href="/{{code}}/" name={{code}} class="dropdown-item" hx-post="/region" hx-target="#region" hx-swap="innerHTML">{{name}}</a>
+              {% if code == "near-me" and not premium_member %}
+              <a href="{% url 'premium' %}" class="dropdown-item text-body-tertiary" title="Premium feature">{{name}} <span class="badge text-bg-warning">Premium</span></a>
+              {% else %}
+	      <a href="/{{code}}/" name={{code}} class="dropdown-item" hx-post="/region" hx-target="#region" hx-swap="innerHTML">
+		      {{name}}{% if code == "near-me" %} <span class="badge text-bg-primary">New</span>{% endif %}
+	      </a>
+              {% endif %}
             </li>
             {% endfor%}
           </ul>
@@ -79,6 +99,8 @@
             <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/stats/"><i class="fas fa-chart-column"></i> Stats</a></li>
             {% if premium_member %}
             <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/archive/"><i class="fas fa-box-archive"></i> Archive</a></li>
+            {% else %}
+            <li class="nav-item"><a class="nav-link text-body-tertiary" href="{% url 'premium' %}" title="Premium feature"><i class="fas fa-box-archive"></i> Archive <span class="badge text-bg-warning">Premium</span></a></li>
             {% endif %}
             <li class="nav-item"><a class="nav-link" href="/practice/"><i class="fas fa-graduation-cap"></i> Practice</a></li>
             <li class="nav-item"><a class="nav-link" href="/info/"><i class="fas fa-info-circle"></i> Info</a></li>

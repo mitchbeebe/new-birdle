@@ -1,0 +1,76 @@
+{% is_premium as premium_member %}
+<div id="custom-region">
+<hr>
+<h5>Near me {% if not premium_member %}<span class="badge text-bg-warning">Premium</span>{% endif %}</h5>
+<p class="text-body-secondary small">Play a daily Birdle built from species reported to eBird within 50 km of you over the last 30 days. The species pool is frozen when built; change your location to rebuild it.</p>
+{% if not premium_member %}
+<div class="alert alert-secondary py-2 small">This is a premium feature. <a href="{% url 'premium' %}">Go Premium</a> to build a region near you.</div>
+{% elif not ebird_enabled %}
+<div class="alert alert-secondary py-2 small">Custom regions aren't available yet.</div>
+{% endif %}
+{% if custom_region %}
+<div class="d-flex align-items-center gap-2 mb-2">
+    <div class="flex-fill small">
+        <div class="fw-semibold">{% if custom_region.location %}{{ custom_region.location }}{% else %}{{ custom_region.lat }}, {{ custom_region.lng }}{% endif %}</div>
+        <div class="text-body-secondary">{{ custom_region.species_count }} species{% if custom_region.built_at %} &middot; built {{ custom_region.built_at|date:"M j" }}{% endif %}</div>
+    </div>
+    {% if custom_region.species_count > 0 %}<a href="/near-me/" class="btn btn-primary btn-sm">Play</a>{% endif %}
+</div>
+{% if custom_region.species_count < 10 %}
+<div class="alert alert-warning py-2 small">That's a small pool &mdash; few species have been reported nearby recently.</div>
+{% endif %}
+{% endif %}
+<details {% if not custom_region or region_form.errors %}open{% endif %}>
+{% if custom_region %}<summary class="small text-body-secondary mb-2">Change location</summary>{% else %}<summary class="d-none"></summary>{% endif %}
+<form method="post" action="{% url 'custom_region' %}" id="custom-region-form"
+      hx-post="{% url 'custom_region' %}" hx-target="#custom-region" hx-swap="outerHTML"
+      hx-disabled-elt="find button" hx-indicator="#custom-region-spinner">
+    {% csrf_token %}
+    <fieldset {% if not premium_member or not ebird_enabled %}disabled{% endif %}>
+    {% for error in region_form.non_field_errors %}
+    <div class="alert alert-danger py-2 small">{{ error }}</div>
+    {% endfor %}
+    <button type="button" class="btn {% if custom_region %}btn-outline-primary{% else %}btn-primary{% endif %} w-100 mb-2" id="use-location"><i class="fas fa-location-crosshairs"></i> Use my location <span id="custom-region-spinner" class="htmx-indicator spinner-border spinner-border-sm"></span></button>
+    <div class="text-center text-body-secondary small mb-2">or</div>
+    {{ region_form.lat }}
+    {{ region_form.lng }}
+    <div class="input-group">
+        {{ region_form.location }}
+        <button type="submit" class="btn btn-outline-primary" id="build-from-place">Go</button>
+    </div>
+    {% for error in region_form.location.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </fieldset>
+</form>
+{% if custom_region %}
+<form method="post" action="{% url 'custom_region_delete' %}" class="mt-2 text-center"
+      hx-post="{% url 'custom_region_delete' %}" hx-target="#custom-region" hx-swap="outerHTML"
+      hx-disabled-elt="find button" hx-confirm="Delete your Near me region and its game history?">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-link btn-sm text-danger">Delete Near me region</button>
+</form>
+{% endif %}
+</details>
+<script>
+document.getElementById("build-from-place").addEventListener("click", function () {
+    document.getElementById("{{ region_form.lat.id_for_label }}").value = "";
+    document.getElementById("{{ region_form.lng.id_for_label }}").value = "";
+});
+document.getElementById("use-location").addEventListener("click", function () {
+    if (!navigator.geolocation) { alert("Geolocation isn't supported by this browser. Type your location instead."); return; }
+    if (!window.isSecureContext) { alert("Location only works over https. Open this page via an https address, or type your location instead."); return; }
+    var button = this;
+    button.disabled = true;
+    navigator.geolocation.getCurrentPosition(function (pos) {
+        document.getElementById("{{ region_form.lat.id_for_label }}").value = pos.coords.latitude.toFixed(2);
+        document.getElementById("{{ region_form.lng.id_for_label }}").value = pos.coords.longitude.toFixed(2);
+        document.getElementById("{{ region_form.location.id_for_label }}").value = "";
+        document.getElementById("custom-region-form").requestSubmit();
+    }, function (err) {
+        button.disabled = false;
+        alert(err.code === err.PERMISSION_DENIED
+            ? "Location access is blocked for this site. Allow it in your browser settings, or type your location."
+            : "Couldn't get your location. Try again or type it.");
+    }, { timeout: 15000 });
+});
+</script>
+</div>

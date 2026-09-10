@@ -15,23 +15,22 @@
 </form>
 <script>
   document.getElementById("copy-invite").addEventListener("click", async (e) => {
-    const url = document.getElementById("invite-url").value;
-    if (navigator.share) {
-      try { await navigator.share({ url }); return; } catch (_) {}
-    }
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(document.getElementById("invite-url").value);
     e.target.textContent = "Copied";
+    setTimeout(() => (e.target.textContent = "Copy"), 1500);
   });
 </script>
 
-<form method="post" action="{% url 'friend_request' %}" class="mb-4">
-    {% csrf_token %}
-    <label for="friend-username" class="form-label">Add a friend</label>
-    <div class="input-group">
-        <input type="text" id="friend-username" name="username" class="form-control" placeholder="Exact username" required autocomplete="off">
-        <button type="submit" class="btn btn-primary">Send request</button>
-    </div>
-</form>
+<details class="mb-4">
+    <summary class="small text-body-secondary mb-2">Add by username instead</summary>
+    <form method="post" action="{% url 'friend_request' %}">
+        {% csrf_token %}
+        <div class="input-group">
+            <input type="text" id="friend-username" name="username" class="form-control" placeholder="Exact username" required autocomplete="off" aria-label="Username">
+            <button type="submit" class="btn btn-outline-primary">Send request</button>
+        </div>
+    </form>
+</details>
 
 {% if incoming %}
 <h2 class="h6">Requests</h2>

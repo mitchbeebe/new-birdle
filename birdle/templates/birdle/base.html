@@ -99,8 +99,10 @@
             <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/stats/"><i class="fas fa-chart-column"></i> Stats</a></li>
             {% if premium_member %}
             <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/archive/"><i class="fas fa-box-archive"></i> Archive</a></li>
+            <li class="nav-item"><a class="nav-link" href="/{{nav_region_code}}/leaderboard/"><i class="fas fa-trophy"></i> Leaderboard</a></li>
             {% else %}
             <li class="nav-item"><a class="nav-link text-body-tertiary" href="{% url 'premium' %}" title="Premium feature"><i class="fas fa-box-archive"></i> Archive <span class="badge text-bg-warning">Premium</span></a></li>
+            <li class="nav-item"><a class="nav-link text-body-tertiary" href="{% url 'premium' %}" title="Premium feature"><i class="fas fa-trophy"></i> Leaderboard <span class="badge text-bg-warning">Premium</span></a></li>
             {% endif %}
             <li class="nav-item"><a class="nav-link" href="/practice/"><i class="fas fa-graduation-cap"></i> Practice</a></li>
             <li class="nav-item"><a class="nav-link" href="/info/"><i class="fas fa-info-circle"></i> Info</a></li>

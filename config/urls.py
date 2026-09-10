@@ -22,6 +22,7 @@ urlpatterns = [
     # Default paths (without region in URL)
     path("", views.daily_bird, name="daily_bird"),
     path("stats/", views.stats, name="stats"),
+    path("leaderboard/", views.leaderboard, name="leaderboard"),
     path("info/", views.info, name="info"),
     path("practice/", views.practice, name="practice"),
     path(
@@ -55,6 +56,7 @@ urlpatterns = [
     # Regional paths (with region code in URL) - after specific paths
     path("<str:region_code>/", views.daily_bird, name="daily_bird_region"),
     path("<str:region_code>/stats/", views.stats, name="stats_region"),
+    path("<str:region_code>/leaderboard/", views.leaderboard, name="leaderboard_region"),
     path("<str:region_code>/archive/", views.archive, name="archive"),
     path("<str:region_code>/archive/<str:date>/", views.archive_game, name="archive_game"),
 ]

@@ -14,7 +14,7 @@ from django.http import HttpResponse
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone as django_timezone
 
-from . import accolades
+from . import accolades, leaderboards
 from .friends import friend_ids, invite_for, reset_invite, send_request
 from .models import (
     Bird,
@@ -1407,3 +1407,202 @@ class FriendTests(TestCase):
         Membership.objects.filter(user=self.alice).delete()
         self.client.force_login(self.alice)
         self.assertRedirects(self.client.get(url), "/premium/")
+
+
+@plain_static_storage
+class LeaderboardTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.region, _ = Region.objects.get_or_create(code="world", defaults={"name": "World"})
+        self.other_region, _ = Region.objects.get_or_create(code="eu", defaults={"name": "Europe"})
+        self.today = date(2026, 3, 18)  # a Wednesday
+        self.alice = User.objects.create_user("alice", "alice@example.com", "pw")
+        self.bob = User.objects.create_user("bob", "bob@example.com", "pw")
+        self.anon = User.objects.create_user("17000000000", "", "pw")
+        self.birds = [make_bird(f"bird-{i}") for i in range(12)]
+
+    def play(self, user, days_ago, guesses, won=True, region=None, is_archive=False):
+        """Record a game `days_ago` days back with `guesses` guesses, last one correct if won."""
+        game_date = self.today - timedelta(days=days_ago)
+        region = region or self.region
+        game, _ = Game.objects.get_or_create(
+            date=game_date, region=region, defaults={"bird": self.birds[days_ago % 12]}
+        )
+        usergame = UserGame.objects.create(user=user, game=game, is_archive=is_archive)
+        for i in range(guesses):
+            correct = won and i == guesses - 1
+            bird = game.bird if correct else self.birds[(days_ago + i + 1) % 12]
+            Guess.objects.create(usergame=usergame, bird=bird)
+        return usergame
+
+    def test_played_counts_games_with_guesses_in_period(self):
+        self.play(self.alice, 0, 3)
+        self.play(self.alice, 1, 2)
+        self.play(self.alice, 40, 2)  # outside the window
+        self.play(self.bob, 0, 6, won=False)
+        UserGame.objects.create(
+            user=self.bob, game=Game.objects.get(date=self.today - timedelta(days=1))
+        )
+        rows = leaderboards.played("world", self.today - timedelta(days=30), self.today)
+        self.assertEqual(rows, [(self.alice.pk, "alice", 2), (self.bob.pk, "bob", 1)])
+
+    def test_weighted_wins_scores_by_guess_count(self):
+        self.play(self.alice, 0, 1)  # 6 pts
+        self.play(self.alice, 1, 6)  # 1 pt
+        self.play(self.bob, 0, 4)  # 3 pts
+        self.play(self.bob, 1, 6, won=False)  # no points
+        rows = leaderboards.weighted_wins("world", None, None)
+        self.assertEqual(rows, [(self.alice.pk, "alice", 7), (self.bob.pk, "bob", 3)])
+
+    def test_weighted_wins_ignores_other_regions(self):
+        self.play(self.alice, 0, 1, region=self.other_region)
+        self.assertEqual(leaderboards.weighted_wins("world", None, None), [])
+
+    def test_streaks_count_consecutive_wins_ending_today_or_yesterday(self):
+        for days_ago in (0, 1, 2, 4):
+            self.play(self.alice, days_ago, 2)
+        for days_ago in (1, 2, 3):  # no win today yet, streak still alive
+            self.play(self.bob, days_ago, 2)
+        rows = leaderboards.streaks("world", self.today)
+        self.assertEqual(rows, [(self.alice.pk, "alice", 3), (self.bob.pk, "bob", 3)])
+
+    def test_streaks_exclude_users_without_recent_win(self):
+        self.play(self.alice, 2, 2)
+        self.play(self.alice, 3, 2)
+        self.play(self.bob, 0, 6, won=False)
+        self.assertEqual(leaderboards.streaks("world", self.today), [])
+
+    def test_anonymous_users_excluded(self):
+        self.play(self.anon, 0, 1)
+        self.play(self.alice, 0, 3)
+        self.assertEqual(leaderboards.played("world", None, None), [(self.alice.pk, "alice", 1)])
+        self.assertEqual(
+            leaderboards.weighted_wins("world", None, None), [(self.alice.pk, "alice", 4)]
+        )
+        self.assertEqual(leaderboards.streaks("world", self.today), [(self.alice.pk, "alice", 1)])
+
+    def test_archive_games_excluded(self):
+        self.play(self.alice, 0, 1, is_archive=True)
+        self.play(self.alice, 1, 1, is_archive=True)
+        self.play(self.bob, 0, 3)
+        self.assertEqual(leaderboards.played("world", None, None), [(self.bob.pk, "bob", 1)])
+        self.assertEqual(leaderboards.weighted_wins("world", None, None), [(self.bob.pk, "bob", 4)])
+        self.assertEqual(leaderboards.streaks("world", self.today), [(self.bob.pk, "bob", 1)])
+
+    def test_rank_of(self):
+        rows = [(self.bob.pk, "bob", 5), (self.alice.pk, "alice", 2)]
+        self.assertEqual(leaderboards.rank_of(rows, self.alice.pk), 2)
+        self.assertIsNone(leaderboards.rank_of(rows, 999))
+
+    def test_period_bounds(self):
+        self.assertEqual(
+            leaderboards.period_bounds("week", self.today), (date(2026, 3, 16), self.today)
+        )
+        self.assertEqual(
+            leaderboards.period_bounds("month", self.today), (date(2026, 3, 1), self.today)
+        )
+        self.assertEqual(leaderboards.period_bounds("all", self.today), (None, None))
+
+    def grant_premium(self, user):
+        Membership.objects.create(user=user, comp_until=django_timezone.now() + timedelta(days=1))
+
+    def test_anonymous_redirected_to_login(self):
+        response = self.client.get("/world/leaderboard/")
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response["Location"].startswith("/accounts/login/"))
+
+    def test_non_premium_redirected_to_premium_page(self):
+        self.client.force_login(self.alice)
+        response = self.client.get("/world/leaderboard/")
+        self.assertRedirects(response, "/premium/")
+
+    def test_unknown_region_404(self):
+        self.grant_premium(self.alice)
+        self.client.force_login(self.alice)
+        self.assertEqual(self.client.get("/nowhere/leaderboard/").status_code, 404)
+
+    def test_bare_url_redirects_to_session_region(self):
+        self.grant_premium(self.alice)
+        self.client.force_login(self.alice)
+        self.assertRedirects(
+            self.client.get("/leaderboard/"), "/world/leaderboard/", fetch_redirect_response=False
+        )
+
+    def test_page_shows_viewer_rank(self):
+        self.grant_premium(self.alice)
+        self.client.force_login(self.alice)
+        self.play(self.bob, 0, 1)
+        self.play(self.alice, 0, 3)
+        response = self.client.get("/world/leaderboard/?period=all&scope=all")
+        self.assertContains(response, "You are #2 of 2")
+        self.assertContains(response, "bob")
+        self.assertContains(response, "Leaderboard</a>")
+
+    def test_invalidate_refreshes_cached_boards(self):
+        self.play(self.alice, 0, 1)
+        self.assertEqual(len(leaderboards.played("world", None, None)), 1)
+        self.play(self.bob, 0, 1)
+        self.assertEqual(len(leaderboards.played("world", None, None)), 1)  # still cached
+        leaderboards.invalidate("world")
+        self.assertEqual(len(leaderboards.played("world", None, None)), 2)
+
+    def test_guess_invalidates_region_boards(self):
+        with patch("birdle.views.leaderboards.invalidate") as invalidate:
+            self.client.force_login(self.alice)
+            game, _ = Game.objects.get_or_create(
+                date=datetime.now(timezone.utc).date(),
+                region=self.region,
+                defaults={"bird": self.birds[0]},
+            )
+            session = self.client.session
+            session["username"] = "alice"
+            session.save()
+            self.client.cookies["timezone"] = "UTC"
+            with patch("birdle.views.get_bird_images", return_value=[]):
+                self.client.post("/world/", {"guess-input": game.bird.name}, HTTP_HX_REQUEST="true")
+        invalidate.assert_called_once_with("world")
+
+    def test_among_adds_zero_rows_for_missing_friends(self):
+        rows = [(self.bob.pk, "bob", 5), (self.anon.pk, "17000000000", 9)]
+        usernames = {self.alice.pk: "alice", self.bob.pk: "bob"}
+        self.assertEqual(
+            leaderboards.among(rows, {self.alice.pk, self.bob.pk}, usernames),
+            [(self.bob.pk, "bob", 5), (self.alice.pk, "alice", 0)],
+        )
+
+    def test_friends_scope_lists_every_friend(self):
+        self.grant_premium(self.alice)
+        self.client.force_login(self.alice)
+        carol = User.objects.create_user("carol", "carol@example.com", "pw")
+        send_request(self.alice, self.bob, accepted=True)
+        self.play(carol, 0, 1)
+        response = self.client.get("/world/leaderboard/?period=all&scope=friends")
+        self.assertContains(response, "You are #1 of 2")
+        self.assertContains(response, "<td>bob</td>")
+        self.assertNotContains(response, "<td>carol</td>")
+
+    def test_near_me_region_has_no_board(self):
+        self.grant_premium(self.alice)
+        self.client.force_login(self.alice)
+        region = Region.objects.create(code=f"near-me-{self.alice.pk}", name="Near me")
+        CustomRegion.objects.create(user=self.alice, region=region, lat=0, lng=0, species_count=1)
+        response = self.client.get("/near-me/leaderboard/")
+        self.assertContains(response, "just you")
+        self.assertNotContains(response, "Games played")
+
+    def test_region_switch_stays_on_leaderboard(self):
+        self.grant_premium(self.alice)
+        self.client.force_login(self.alice)
+        response = self.client.post(
+            "/region",
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TRIGGER_NAME="eu",
+            HTTP_HX_CURRENT_URL="http://testserver/world/leaderboard/",
+        )
+        self.assertEqual(response["HX-Redirect"], "/eu/leaderboard/")
+
+    def test_page_shows_unranked_without_games(self):
+        self.grant_premium(self.alice)
+        self.client.force_login(self.alice)
+        response = self.client.get("/world/leaderboard/?scope=all")
+        self.assertContains(response, "You are unranked")

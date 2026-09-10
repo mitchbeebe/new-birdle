@@ -34,6 +34,7 @@ from . import premium as premium_lib
 from .signals import merge_anonymous_history
 from .premium import premium_required
 from .accolades import detailed_stats
+from . import leaderboards
 from django.core.cache import cache
 from django.db.models import Count, Exists, OuterRef, Q
 from django.http import (
@@ -58,7 +59,7 @@ logger = logging.getLogger(__name__)
 CUSTOM_REGION_CODE = "near-me"
 CUSTOM_REGION_NAME = "Near me"
 # Paths under /<region>/ that the region switcher preserves when changing regions.
-REGION_PAGE_SUFFIXES = {"stats", "archive"}
+REGION_PAGE_SUFFIXES = {"stats", "archive", "leaderboard"}
 
 
 def custom_region_db_code(user) -> str:
@@ -247,6 +248,7 @@ def _play(request, game, usergame, region_code, archive=False):
                 hint_used=request.POST.get("hint_used") == "true",
             )
             cache.delete(_stats_cache_key(user.username, region_code))
+            leaderboards.invalidate(region_code)
 
         # Get all user guesses
         guesses = Guess.objects.filter(usergame=usergame).order_by("guessed_at")
@@ -735,6 +737,65 @@ def stats(request, region_code=None):
     if not premium:
         context.pop("detailed", None)
     return render(request, "birdle/stats.html", context)
+
+
+PERIODS = {"week": "This week", "month": "This month", "all": "All time"}
+SCOPES = {"friends": "Friends", "all": "Everyone"}
+
+
+@premium_lib.premium_required
+def leaderboard(request, region_code=None):
+    # Redirect to regional URL if no region code provided
+    if not region_code:
+        region_code = request.session.get("region_code", "world")
+        return redirect("leaderboard_region", region_code=region_code)
+
+    db_code = _validate_region(request, region_code)
+    if isinstance(db_code, HttpResponse):
+        return db_code
+
+    period = request.GET.get("period", "week")
+    if period not in PERIODS:
+        period = "week"
+    scope = request.GET.get("scope", "friends")
+    if scope not in SCOPES:
+        scope = "friends"
+    context = {
+        "boards": [],
+        "period": period,
+        "period_label": PERIODS[period].lower(),
+        "periods": PERIODS,
+        "scope": scope,
+        "scopes": SCOPES,
+        # A near-me region has a single player, so there is nobody to rank against.
+        "single_player": region_code == CUSTOM_REGION_CODE,
+    }
+    if context["single_player"]:
+        return render(request, "birdle/leaderboard.html", context)
+
+    today = datetime.now(timezone.utc).astimezone(get_user_timezone(request)).date()
+    start, end = leaderboards.period_bounds(period, today)
+
+    boards = context["boards"]
+    for key, title, rows in [
+        ("played", "Games played", leaderboards.played(db_code, start, end)),
+        ("wins", "Weighted wins", leaderboards.weighted_wins(db_code, start, end)),
+        ("streak", "Current streak", leaderboards.streaks(db_code, today)),
+    ]:
+        if scope == "friends":
+            ids = friends_lib.friend_ids(request.user) | {request.user.pk}
+            usernames = dict(User.objects.filter(pk__in=ids).values_list("pk", "username"))
+            rows = leaderboards.among(rows, ids, usernames)
+        boards.append(
+            {
+                "key": key,
+                "title": title,
+                "rows": rows[: leaderboards.TOP_N],
+                "total": len(rows),
+                "rank": leaderboards.rank_of(rows, request.user.pk),
+            }
+        )
+    return render(request, "birdle/leaderboard.html", context)
 
 
 def info(request):

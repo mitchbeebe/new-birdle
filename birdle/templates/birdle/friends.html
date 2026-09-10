@@ -1,0 +1,79 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Friends{% endblock %}
+
+{% block card_body %}
+<label for="invite-url" class="form-label">Your invite link</label>
+<div class="input-group mb-1">
+    <input type="text" id="invite-url" class="form-control" value="{{ invite_url }}" readonly>
+    <button type="button" class="btn btn-primary" id="copy-invite">Copy</button>
+</div>
+<form method="post" action="{% url 'friend_invite_reset' %}" class="mb-4">
+    {% csrf_token %}
+    <small class="text-body-secondary">Anyone with this link can add you as a friend.</small>
+    <button type="submit" class="btn btn-link btn-sm p-0 align-baseline">Reset link</button>
+</form>
+<script>
+  document.getElementById("copy-invite").addEventListener("click", async (e) => {
+    await navigator.clipboard.writeText(document.getElementById("invite-url").value);
+    e.target.textContent = "Copied";
+    setTimeout(() => (e.target.textContent = "Copy"), 1500);
+  });
+</script>
+
+<details class="mb-4">
+    <summary class="small text-body-secondary mb-2">Add by username instead</summary>
+    <form method="post" action="{% url 'friend_request' %}">
+        {% csrf_token %}
+        <div class="input-group">
+            <input type="text" id="friend-username" name="username" class="form-control" placeholder="Exact username" required autocomplete="off" aria-label="Username">
+            <button type="submit" class="btn btn-outline-primary">Send request</button>
+        </div>
+    </form>
+</details>
+
+{% if incoming %}
+<h2 class="h6">Requests</h2>
+<ul class="list-group mb-4">
+    {% for req in incoming %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ req.from_user.username }}
+        <span class="d-flex gap-1">
+            <form method="post" action="{% url 'friend_accept' req.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-primary">Accept</button>
+            </form>
+            <form method="post" action="{% url 'friend_decline' req.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Decline</button>
+            </form>
+        </span>
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<h2 class="h6">Your friends</h2>
+<ul class="list-group mb-4">
+    {% for friendship, friend in friends %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ friend.username }}
+        <form method="post" action="{% url 'friend_remove' friendship.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+        </form>
+    </li>
+    {% empty %}
+    <li class="list-group-item text-body-secondary">No friends yet.</li>
+    {% endfor %}
+</ul>
+
+{% if outgoing %}
+<h2 class="h6">Sent</h2>
+<ul class="list-group">
+    {% for req in outgoing %}
+    <li class="list-group-item text-body-secondary">{{ req.to_user.username }} &middot; pending</li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

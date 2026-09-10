@@ -1,4 +1,5 @@
 import random
+import secrets
 from typing import TYPE_CHECKING
 from django.db import models
 from django.conf import settings
@@ -176,3 +177,52 @@ class CustomRegion(models.Model):
 
     def __str__(self):
         return f"{self.user}: {self.region.name}"
+
+
+class Friendship(models.Model):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    STATUS_CHOICES = [(PENDING, "Pending"), (ACCEPTED, "Accepted")]
+
+    from_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="friend_requests_sent", on_delete=models.CASCADE
+    )
+    to_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="friend_requests_received",
+        on_delete=models.CASCADE,
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    if TYPE_CHECKING:
+        from_user_id: int
+        to_user_id: int
+
+    class Meta:
+        unique_together = ("from_user", "to_user")
+        constraints = [
+            # django-stubs still spell this kwarg `check`; Django 5.1+ wants `condition`.
+            models.CheckConstraint(  # ty: ignore[missing-argument]
+                condition=~models.Q(from_user=models.F("to_user")),  # ty: ignore[unknown-argument]
+                name="friendship_not_self",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.from_user} -> {self.to_user} ({self.status})"
+
+
+def new_invite_token() -> str:
+    return secrets.token_urlsafe(16)
+
+
+class FriendInvite(models.Model):
+    """A user's stable, shareable friend-invite token; reset regenerates it."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    token = models.CharField(max_length=32, unique=True, default=new_invite_token)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user}: {self.token}"

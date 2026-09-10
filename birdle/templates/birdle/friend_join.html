@@ -1,0 +1,14 @@
+{% extends 'account/base_card.html' %}
+
+{% block card_title %}Add a friend{% endblock %}
+
+{% block card_body %}
+<p class="text-center">Add <strong>{{ inviter.username }}</strong> as a friend?</p>
+<form method="post">
+    {% csrf_token %}
+    <div class="d-grid gap-2">
+        <button type="submit" class="btn btn-primary">Add friend</button>
+        <a href="{% url 'friends' %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

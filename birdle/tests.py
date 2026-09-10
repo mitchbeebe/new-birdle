@@ -15,10 +15,12 @@ from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone as django_timezone
 
 from . import accolades
+from .friends import friend_ids, invite_for, reset_invite, send_request
 from .models import (
     Bird,
     BirdRegion,
     CustomRegion,
+    Friendship,
     Game,
     Guess,
     Image,
@@ -1257,3 +1259,151 @@ class AccoladeTests(TestCase):
                 self.client.post("/world/", {"guess-input": "wren"})
         self.assertIsNone(cache.get(_stats_cache_key(self.user.username, "world")))
         self.assertEqual(self.stats_page().context["detailed"]["life_list"]["count"], 2)
+
+
+@plain_static_storage
+class FriendTests(TestCase):
+    def setUp(self):
+        self.alice = User.objects.create_user("alice", "alice@example.com", "s3cret-pass")
+        self.bob = User.objects.create_user("bob", "bob@example.com", "s3cret-pass")
+        self.carol = User.objects.create_user("carol", "carol@example.com", "s3cret-pass")
+        for user in (self.alice, self.bob, self.carol):
+            Membership.objects.create(
+                user=user, comp_until=django_timezone.now() + timedelta(days=1)
+            )
+        self.client.force_login(self.alice)
+
+    def test_send_creates_pending(self):
+        response = self.client.post("/accounts/friends/request/", {"username": "Bob"}, follow=True)
+        self.assertContains(response, "Friend request sent to bob")
+        friendship = Friendship.objects.get(from_user=self.alice, to_user=self.bob)
+        self.assertEqual(friendship.status, Friendship.PENDING)
+
+    def test_duplicate_reverse_and_self_rejected(self):
+        with self.assertRaises(ValueError):
+            send_request(self.alice, self.alice)
+        send_request(self.alice, self.bob)
+        with self.assertRaises(ValueError):
+            send_request(self.alice, self.bob)
+        Friendship.objects.filter(from_user=self.alice).update(status=Friendship.ACCEPTED)
+        with self.assertRaises(ValueError):
+            send_request(self.alice, self.bob)
+        with self.assertRaises(ValueError):
+            send_request(self.bob, self.alice)
+        self.assertEqual(Friendship.objects.count(), 1)
+
+    def test_reverse_pending_auto_accepts(self):
+        send_request(self.bob, self.alice)
+        friendship = send_request(self.alice, self.bob)
+        self.assertEqual(friendship.status, Friendship.ACCEPTED)
+        self.assertEqual(Friendship.objects.count(), 1)
+        self.assertEqual(friend_ids(self.alice), {self.bob.pk})
+
+    def test_friend_ids_symmetric(self):
+        Friendship.objects.create(from_user=self.alice, to_user=self.bob, status="accepted")
+        Friendship.objects.create(from_user=self.carol, to_user=self.alice, status="pending")
+        self.assertEqual(friend_ids(self.alice), {self.bob.pk})
+        self.assertEqual(friend_ids(self.bob), {self.alice.pk})
+        self.assertEqual(friend_ids(self.carol), set())
+
+    def test_accept_only_by_recipient(self):
+        friendship = Friendship.objects.create(from_user=self.bob, to_user=self.carol)
+        url = f"/accounts/friends/{friendship.pk}/accept/"
+        self.assertEqual(self.client.post(url).status_code, 403)
+        self.client.force_login(self.carol)
+        self.assertRedirects(self.client.post(url), "/accounts/friends/")
+        friendship.refresh_from_db()
+        self.assertEqual(friendship.status, Friendship.ACCEPTED)
+
+    def test_decline_only_by_recipient(self):
+        friendship = Friendship.objects.create(from_user=self.bob, to_user=self.carol)
+        url = f"/accounts/friends/{friendship.pk}/decline/"
+        self.assertEqual(self.client.post(url).status_code, 403)
+        self.client.force_login(self.carol)
+        self.assertRedirects(self.client.post(url), "/accounts/friends/")
+        self.assertFalse(Friendship.objects.exists())
+
+    def test_remove_only_by_involved_user(self):
+        friendship = Friendship.objects.create(
+            from_user=self.bob, to_user=self.carol, status=Friendship.ACCEPTED
+        )
+        url = f"/accounts/friends/{friendship.pk}/remove/"
+        self.assertEqual(self.client.post(url).status_code, 403)
+        self.client.force_login(self.bob)
+        self.assertRedirects(self.client.post(url), "/accounts/friends/")
+        self.assertFalse(Friendship.objects.exists())
+
+    def test_friends_page_lists_everything(self):
+        Friendship.objects.create(from_user=self.bob, to_user=self.alice, status="accepted")
+        Friendship.objects.create(from_user=self.carol, to_user=self.alice)
+        dave = User.objects.create_user("dave", "dave@example.com", "s3cret-pass")
+        Friendship.objects.create(from_user=self.alice, to_user=dave)
+        response = self.client.get("/accounts/friends/")
+        self.assertContains(response, "bob")
+        self.assertContains(response, "Accept")
+        self.assertContains(response, "dave &middot; pending")
+        self.assertContains(response, 'Friends <span class="badge')
+
+    def test_unknown_or_anonymous_username_not_found(self):
+        User.objects.create(username="169900000000")
+        for name in ("nobody", "169900000000"):
+            response = self.client.post(
+                "/accounts/friends/request/", {"username": name}, follow=True
+            )
+            self.assertContains(response, "User not found.")
+        self.assertFalse(Friendship.objects.exists())
+
+    def test_anonymous_redirected_to_login(self):
+        self.client.logout()
+        response = self.client.get("/accounts/friends/")
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response["Location"].startswith("/accounts/login/"))
+
+    def test_non_premium_redirected_to_premium(self):
+        Membership.objects.filter(user=self.alice).delete()
+        self.assertRedirects(self.client.get("/accounts/friends/"), "/premium/")
+        self.assertNotContains(self.client.get("/accounts/profile/"), 'href="/accounts/friends/"')
+
+    def test_invite_link_shown_and_reset(self):
+        response = self.client.get("/accounts/friends/")
+        token = invite_for(self.alice).token
+        self.assertContains(response, f"/accounts/friends/join/{token}/")
+        self.client.post("/accounts/friends/invite/reset/")
+        self.assertNotEqual(invite_for(self.alice).token, token)
+
+    def test_join_page_and_confirm_creates_accepted(self):
+        url = f"/accounts/friends/join/{invite_for(self.bob).token}/"
+        self.assertContains(self.client.get(url), "Add <strong>bob</strong> as a friend?")
+        response = self.client.post(url, follow=True)
+        self.assertContains(response, "You and bob are now friends.")
+        self.assertEqual(friend_ids(self.alice), {self.bob.pk})
+
+    def test_join_upgrades_pending_request_to_accepted(self):
+        send_request(self.alice, self.bob)
+        self.client.post(f"/accounts/friends/join/{invite_for(self.bob).token}/")
+        self.assertEqual(friend_ids(self.bob), {self.alice.pk})
+        self.assertEqual(Friendship.objects.count(), 1)
+
+    def test_join_own_link_or_existing_friend_rejected(self):
+        url = f"/accounts/friends/join/{invite_for(self.alice).token}/"
+        self.assertContains(self.client.post(url, follow=True), "You can&#x27;t add yourself.")
+        send_request(self.alice, self.bob, accepted=True)
+        url = f"/accounts/friends/join/{invite_for(self.bob).token}/"
+        self.assertContains(self.client.post(url, follow=True), "You&#x27;re already friends.")
+        self.assertEqual(Friendship.objects.count(), 1)
+
+    def test_join_bad_or_reset_token_404(self):
+        old = invite_for(self.bob).token
+        reset_invite(self.bob)
+        self.assertEqual(self.client.get(f"/accounts/friends/join/{old}/").status_code, 404)
+        self.assertEqual(self.client.get("/accounts/friends/join/nope/").status_code, 404)
+
+    def test_join_gated_by_login_and_premium(self):
+        url = f"/accounts/friends/join/{invite_for(self.bob).token}/"
+        self.client.logout()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(f"next={url}", response["Location"])
+        Membership.objects.filter(user=self.alice).delete()
+        self.client.force_login(self.alice)
+        self.assertRedirects(self.client.get(url), "/premium/")

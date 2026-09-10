@@ -6,6 +6,7 @@ import requests
 import requests.adapters
 from bs4 import BeautifulSoup
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import redirect_to_login
 from django.views.decorators.csrf import csrf_exempt
@@ -16,6 +17,8 @@ from django.contrib.auth.models import User
 from .models import (
     Bird,
     CustomRegion,
+    FriendInvite,
+    Friendship,
     Guess,
     Game,
     Membership,
@@ -26,13 +29,20 @@ from .models import (
 )
 from .forms import BirdRegionForm, CustomRegionForm, UsernameForm, practice_pool
 from . import ebird
+from . import friends as friends_lib
 from . import premium as premium_lib
 from .signals import merge_anonymous_history
 from .premium import premium_required
 from .accolades import detailed_stats
 from django.core.cache import cache
 from django.db.models import Count, Exists, OuterRef, Q
-from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import (
+    Http404,
+    HttpResponse,
+    HttpResponseForbidden,
+    HttpResponseRedirect,
+    JsonResponse,
+)
 from django.urls import reverse
 from django.template.loader import render_to_string
 from django.template.defaulttags import register
@@ -485,6 +495,120 @@ def archive_game(request, region_code, date):
     return _play(request, game, usergame, region_code, archive=True)
 
 
+@premium_lib.premium_required
+def friends(request):
+    accepted = Friendship.objects.filter(
+        Q(from_user=request.user) | Q(to_user=request.user), status=Friendship.ACCEPTED
+    ).select_related("from_user", "to_user")
+    friend_rows = [
+        (f, f.to_user if f.from_user_id == request.user.pk else f.from_user) for f in accepted
+    ]
+    friend_rows.sort(key=lambda row: row[1].username.lower())
+    return render(
+        request,
+        "birdle/friends.html",
+        {
+            "friends": friend_rows,
+            "incoming": friends_lib.pending_incoming(request.user),
+            "outgoing": friends_lib.pending_outgoing(request.user),
+            "invite_url": request.build_absolute_uri(
+                reverse("friend_join", args=[friends_lib.invite_for(request.user).token])
+            ),
+        },
+    )
+
+
+@premium_lib.premium_required
+@require_http_methods(["POST"])
+def friend_invite_reset(request):
+    friends_lib.reset_invite(request.user)
+    messages.info(request, "Invite link reset. The old link no longer works.")
+    return redirect("friends")
+
+
+@premium_lib.premium_required
+@require_http_methods(["GET", "POST"])
+def friend_join(request, token):
+    invite = FriendInvite.objects.filter(token=token).select_related("user").first()
+    if invite is None:
+        raise Http404
+    if request.method == "GET":
+        return render(request, "birdle/friend_join.html", {"inviter": invite.user})
+    try:
+        friends_lib.send_request(request.user, invite.user, accepted=True)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("friends")
+    messages.success(request, f"You and {invite.user.username} are now friends.")
+    return redirect("friends")
+
+
+@premium_lib.premium_required
+@require_http_methods(["POST"])
+def friend_request(request):
+    username = request.POST.get("username", "").strip()
+    # Anonymous players get auto-generated numeric usernames and no email; they aren't
+    # addable, and we report them the same as a missing user so nothing leaks.
+    target = (
+        User.objects.filter(username__iexact=username)
+        .exclude(email="", username__regex=r"^\d+$")
+        .first()
+    )
+    if target is None:
+        messages.error(request, "User not found.")
+        return redirect("friends")
+    try:
+        friendship = friends_lib.send_request(request.user, target)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("friends")
+    if friendship.status == Friendship.ACCEPTED:
+        messages.success(request, f"You and {target.username} are now friends.")
+    else:
+        messages.success(request, f"Friend request sent to {target.username}.")
+    return redirect("friends")
+
+
+@premium_lib.premium_required
+@require_http_methods(["POST"])
+def friend_accept(request, pk):
+    friendship = Friendship.objects.filter(pk=pk, status=Friendship.PENDING).first()
+    if friendship is None:
+        raise Http404
+    if friendship.to_user_id != request.user.pk:
+        return HttpResponseForbidden()
+    friendship.status = Friendship.ACCEPTED
+    friendship.save(update_fields=["status"])
+    messages.success(request, f"You and {friendship.from_user.username} are now friends.")
+    return redirect("friends")
+
+
+@premium_lib.premium_required
+@require_http_methods(["POST"])
+def friend_decline(request, pk):
+    friendship = Friendship.objects.filter(pk=pk, status=Friendship.PENDING).first()
+    if friendship is None:
+        raise Http404
+    if friendship.to_user_id != request.user.pk:
+        return HttpResponseForbidden()
+    friendship.delete()
+    messages.info(request, "Request declined.")
+    return redirect("friends")
+
+
+@premium_lib.premium_required
+@require_http_methods(["POST"])
+def friend_remove(request, pk):
+    friendship = Friendship.objects.filter(pk=pk, status=Friendship.ACCEPTED).first()
+    if friendship is None:
+        raise Http404
+    if request.user.pk not in (friendship.from_user_id, friendship.to_user_id):
+        return HttpResponseForbidden()
+    friendship.delete()
+    messages.info(request, "Friend removed.")
+    return redirect("friends")
+
+
 def stats(request, region_code=None):
     # Redirect to regional URL if no region code provided
     if not region_code:
@@ -789,6 +913,14 @@ def google_login_enabled():
 @register.simple_tag(takes_context=True)
 def is_premium(context):
     return premium_lib.is_premium(context["user"])
+
+
+@register.simple_tag(takes_context=True)
+def friend_request_count(context):
+    user = context["user"]
+    if not user.is_authenticated:
+        return 0
+    return friends_lib.pending_incoming(user).count()
 
 
 @register.filter

@@ -44,7 +44,18 @@ def _sorted_rows(scores, usernames):
     return rows
 
 
+def invalidate(region_code):
+    """Drop every cached board for a region (called when a guess is recorded)."""
+    cache.set(f"leaderboard:version:{region_code}", _version(region_code) + 1, timeout=None)
+
+
+def _version(region_code):
+    return cache.get(f"leaderboard:version:{region_code}", 0)
+
+
 def _cached(key, compute):
+    region_code = key.split(":")[2]
+    key = f"{key}:v{_version(region_code)}"
     rows = cache.get(key)
     if rows is None:
         rows = compute()
@@ -120,6 +131,15 @@ def streaks(region_code, today):
         return _sorted_rows(scores, usernames)
 
     return _cached(f"leaderboard:streaks:{region_code}:{today}", compute)
+
+
+def among(rows, user_ids, usernames):
+    """Restrict rows to user_ids, adding a zero-score row for anyone missing."""
+    kept = [row for row in rows if row[0] in user_ids]
+    seen = {row[0] for row in kept}
+    kept += [(user_id, usernames[user_id], 0) for user_id in user_ids if user_id not in seen]
+    kept.sort(key=lambda row: (-row[2], row[1]))
+    return kept
 
 
 def rank_of(rows, user_id):

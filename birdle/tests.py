@@ -1538,6 +1538,69 @@ class LeaderboardTests(TestCase):
         self.assertContains(response, "bob")
         self.assertContains(response, "Leaderboard</a>")
 
+    def test_invalidate_refreshes_cached_boards(self):
+        self.play(self.alice, 0, 1)
+        self.assertEqual(len(leaderboards.played("world", None, None)), 1)
+        self.play(self.bob, 0, 1)
+        self.assertEqual(len(leaderboards.played("world", None, None)), 1)  # still cached
+        leaderboards.invalidate("world")
+        self.assertEqual(len(leaderboards.played("world", None, None)), 2)
+
+    def test_guess_invalidates_region_boards(self):
+        with patch("birdle.views.leaderboards.invalidate") as invalidate:
+            self.client.force_login(self.alice)
+            game, _ = Game.objects.get_or_create(
+                date=datetime.now(timezone.utc).date(),
+                region=self.region,
+                defaults={"bird": self.birds[0]},
+            )
+            session = self.client.session
+            session["username"] = "alice"
+            session.save()
+            self.client.cookies["timezone"] = "UTC"
+            with patch("birdle.views.get_bird_images", return_value=[]):
+                self.client.post("/world/", {"guess-input": game.bird.name}, HTTP_HX_REQUEST="true")
+        invalidate.assert_called_once_with("world")
+
+    def test_among_adds_zero_rows_for_missing_friends(self):
+        rows = [(self.bob.pk, "bob", 5), (self.anon.pk, "17000000000", 9)]
+        usernames = {self.alice.pk: "alice", self.bob.pk: "bob"}
+        self.assertEqual(
+            leaderboards.among(rows, {self.alice.pk, self.bob.pk}, usernames),
+            [(self.bob.pk, "bob", 5), (self.alice.pk, "alice", 0)],
+        )
+
+    def test_friends_scope_lists_every_friend(self):
+        self.grant_premium(self.alice)
+        self.client.force_login(self.alice)
+        carol = User.objects.create_user("carol", "carol@example.com", "pw")
+        send_request(self.alice, self.bob, accepted=True)
+        self.play(carol, 0, 1)
+        response = self.client.get("/world/leaderboard/?period=all&scope=friends")
+        self.assertContains(response, "You are #1 of 2")
+        self.assertContains(response, "<td>bob</td>")
+        self.assertNotContains(response, "<td>carol</td>")
+
+    def test_near_me_region_has_no_board(self):
+        self.grant_premium(self.alice)
+        self.client.force_login(self.alice)
+        region = Region.objects.create(code=f"near-me-{self.alice.pk}", name="Near me")
+        CustomRegion.objects.create(user=self.alice, region=region, lat=0, lng=0, species_count=1)
+        response = self.client.get("/near-me/leaderboard/")
+        self.assertContains(response, "just you")
+        self.assertNotContains(response, "Games played")
+
+    def test_region_switch_stays_on_leaderboard(self):
+        self.grant_premium(self.alice)
+        self.client.force_login(self.alice)
+        response = self.client.post(
+            "/region",
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TRIGGER_NAME="eu",
+            HTTP_HX_CURRENT_URL="http://testserver/world/leaderboard/",
+        )
+        self.assertEqual(response["HX-Redirect"], "/eu/leaderboard/")
+
     def test_page_shows_unranked_without_games(self):
         self.grant_premium(self.alice)
         self.client.force_login(self.alice)

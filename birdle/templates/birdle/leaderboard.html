@@ -5,10 +5,18 @@
 {% block content %}
 <div class="container pt-2" style="max-width: 640px;">
     <h3 class="text-center">Leaderboard ({{request.session.region_code|default:"world"|region_name}})</h3>
-    <div class="d-flex justify-content-center mb-3">
+    {% if single_player %}
+    <p class="text-center">Your Near me region is just you, so there is no one to rank against. Pick a shared region from the globe menu to see its leaderboard.</p>
+    {% else %}
+    <div class="d-flex justify-content-center gap-3 mb-3 flex-wrap">
         <div class="btn-group btn-group-sm" role="group" aria-label="Time period">
             {% for code, name in periods.items %}
-            <a href="?period={{ code }}" class="btn btn-outline-secondary{% if code == period %} active{% endif %}">{{ name }}</a>
+            <a href="?period={{ code }}&scope={{ scope }}" class="btn btn-outline-secondary{% if code == period %} active{% endif %}">{{ name }}</a>
+            {% endfor %}
+        </div>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Players">
+            {% for code, name in scopes.items %}
+            <a href="?period={{ period }}&scope={{ code }}" class="btn btn-outline-secondary{% if code == scope %} active{% endif %}">{{ name }}</a>
             {% endfor %}
         </div>
     </div>
@@ -26,6 +34,9 @@
                 {% if board.rank %}You are #{{ board.rank }} of {{ board.total }}{% else %}You are unranked{% endif %}
                 {% if board.key == "streak" %}(current streak){% else %}({{ period_label }}){% endif %}
             </p>
+            {% if board.key == "wins" %}
+            <p class="text-center text-body-secondary small mb-2">Each win scores 7 minus the guesses it took: 6 points for a first-guess win, 1 point for a sixth-guess win.</p>
+            {% endif %}
             {% if board.rows %}
             <table class="table table-sm">
                 <thead><tr><th>#</th><th>Player</th><th class="text-end">{{ board.title }}</th></tr></thead>
@@ -45,5 +56,6 @@
         </div>
         {% endfor %}
     </div>
+    {% endif %}
 </div>
 {% endblock %}

@@ -1533,7 +1533,7 @@ class LeaderboardTests(TestCase):
         self.client.force_login(self.alice)
         self.play(self.bob, 0, 1)
         self.play(self.alice, 0, 3)
-        response = self.client.get("/world/leaderboard/?period=all")
+        response = self.client.get("/world/leaderboard/?period=all&scope=all")
         self.assertContains(response, "You are #2 of 2")
         self.assertContains(response, "bob")
         self.assertContains(response, "Leaderboard</a>")
@@ -1604,5 +1604,5 @@ class LeaderboardTests(TestCase):
     def test_page_shows_unranked_without_games(self):
         self.grant_premium(self.alice)
         self.client.force_login(self.alice)
-        response = self.client.get("/world/leaderboard/")
+        response = self.client.get("/world/leaderboard/?scope=all")
         self.assertContains(response, "You are unranked")

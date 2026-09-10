@@ -740,7 +740,7 @@ def stats(request, region_code=None):
 
 
 PERIODS = {"week": "This week", "month": "This month", "all": "All time"}
-SCOPES = {"all": "Everyone", "friends": "Friends"}
+SCOPES = {"friends": "Friends", "all": "Everyone"}
 
 
 @premium_lib.premium_required
@@ -754,12 +754,12 @@ def leaderboard(request, region_code=None):
     if isinstance(db_code, HttpResponse):
         return db_code
 
-    period = request.GET.get("period", "month")
+    period = request.GET.get("period", "week")
     if period not in PERIODS:
-        period = "month"
-    scope = request.GET.get("scope", "all")
+        period = "week"
+    scope = request.GET.get("scope", "friends")
     if scope not in SCOPES:
-        scope = "all"
+        scope = "friends"
     context = {
         "boards": [],
         "period": period,
